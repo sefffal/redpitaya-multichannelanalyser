@@ -72,12 +72,12 @@ static int params_init = 0;
 
 const char *rp_app_desc(void)
 {
-    return (const char *)"Red Pitaya spectrum analyser application.\n";
+    return (const char *)"A web based Multi Channel Pulse Height Analyser, based on the backend by Pavel Demin.\n";
 }
 
 int rp_app_init(void)
 {
-    fprintf(stderr, "Loading spectrum version %s-%s.\n", VERSION_STR, REVISION_STR);
+    fprintf(stderr, "Loading multichannelanalyser version %s-%s.\n", VERSION_STR, REVISION_STR);
 
     if(rp_spectr_worker_init() < 0) {
         return -1;
@@ -92,7 +92,7 @@ int rp_app_init(void)
 
 int rp_app_exit(void)
 {
-    fprintf(stderr, "Unloading spectrum version %s-%s.\n", VERSION_STR, REVISION_STR);
+    fprintf(stderr, "Unloading multichannelanalyser version %s-%s.\n", VERSION_STR, REVISION_STR);
 
     rp_spectr_worker_exit();
 
