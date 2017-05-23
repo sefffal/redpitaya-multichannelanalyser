@@ -27,7 +27,7 @@ $(CONTROLLERHF):
 $(ZIP): $(CONTROLLERHF)
 	-$(RM) target -rf
 	mkdir -p target/$(APP)
-	cp -r $(CONTROLLERHF) fpga.conf info index.html target/$(APP)
+	cp -r $(CONTROLLERHF) fpga.conf info js css index.html target/$(APP)
 	sed -i target/$(APP)/info/info.json -e 's/REVISION/$(REVISION)/'
 	sed -i target/$(APP)/info/info.json -e 's/BUILD_NUMBER/$(BUILD_NUMBER)/'
 	cd target; zip -r ../$(ZIP) *
@@ -37,6 +37,6 @@ install: $(ZIP)
 	unzip $(ZIP) -d $(INSTALL_DIR)/www/apps
 
 clean:
+	-$(RM) *.so
 	$(MAKE) -C src clean
 	-$(RM) target -rf
-	-$(RM) *.so
