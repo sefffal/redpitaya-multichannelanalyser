@@ -26,7 +26,7 @@
         $.get(APP.config.app_url)
             .done(function(dresult) {
                 if (dresult.status == 'OK') {
-                    APP.connectWebSocket();
+					window.setTimeout(APP.connectWebSocket, 1000);
                 } else if (dresult.status == 'ERROR') {
                     console.log(dresult.reason ? dresult.reason : 'Could not start the application (ERR1)');
                     APP.startApp();
