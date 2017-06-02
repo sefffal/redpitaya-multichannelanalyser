@@ -19,6 +19,13 @@
     APP.ws = null;
 
 
+    // Signal stack
+    APP.latestSignals = {};
+
+    // Parameters
+    APP.processing = false;
+
+
 
 
     // Starts template application on server
@@ -77,7 +84,7 @@
             APP.ws.binaryType = "arraybuffer";
         } else {
             console.log('Browser does not support WebSocket');
-        }
+        } 
 
 
         // Define WebSocket event listeners
@@ -99,34 +106,74 @@
 
             APP.ws.onmessage = function(ev) {
                 console.log('Message recieved');
+
+                //Capture signals
+                if (APP.processing) {
+                    return;
+                }
+                APP.processing = true;
+
+                try {
+                    var data = new Uint8Array(ev.data);
+                    var inflate = pako.inflate(data);
+                    var text = String.fromCharCode.apply(null, new Uint8Array(inflate));
+                    var receive = JSON.parse(text);
+
+                    if (receive.parameters) {
+                        
+                    }
+
+                    if (receive.signals) {
+                        APP.latestSignals = receive.signals
+                    }
+                    APP.processing = false;
+                } catch (e) {
+                    APP.processing = false;
+                    console.log(e);
+                } finally {
+                    APP.processing = false;
+                }
+
+
             };
         }
     };
 
+    // Do something with the data
+    window.setInterval(function(){
+        // if (APP.processing) {
+        //     return;
+        // }
 
-	APP.led_state = false;
+        document.getElementById("output").textContent = JSON.stringify(APP.latestSignals, null, 2);
+
+    }, 500);
 
 
-	// program checks if led_state button was clicked
-   	$('#led_state').click(function() {
 
-        // changes local led state
-        if (APP.led_state == true){
-            $('#led_on').hide();
-            $('#led_off').show();
-            APP.led_state = false;
-        }
-        else{
-            $('#led_off').hide();
-            $('#led_on').show();
-            APP.led_state = true;
-        }
+	// APP.led_state = false;
 
-    	// sends current led state to backend
-    	var local = {};
-    	local['LED_STATE'] = { value: APP.led_state };
-    	APP.ws.send(JSON.stringify({ parameters: local }));
-	});
+
+	// // program checks if led_state button was clicked
+   	// $('#led_state').click(function() {
+
+    //     // changes local led state
+    //     if (APP.led_state == true){
+    //         $('#led_on').hide();
+    //         $('#led_off').show();
+    //         APP.led_state = false;
+    //     }
+    //     else{
+    //         $('#led_off').hide();
+    //         $('#led_on').show();
+    //         APP.led_state = true;
+    //     }
+
+    // 	// sends current led state to backend
+    // 	var local = {};
+    // 	local['LED_STATE'] = { value: APP.led_state };
+    // 	APP.ws.send(JSON.stringify({ parameters: local }));
+	// });
 
 }(window.APP = window.APP || {}, jQuery));
 
