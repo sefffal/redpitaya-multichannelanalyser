@@ -34,13 +34,14 @@ int rp_app_init(void)
 
 
     // Initialization of API
-    if (rp_Init() != RP_OK) 
+    if (rpApp_Init() != RP_OK) 
     {
         fprintf(stderr, "Red Pitaya API init failed!\n");
         return EXIT_FAILURE;
     }
     else fprintf(stderr, "Red Pitaya API init success!\n");
-	return 0;
+    
+    return 0;
 
 	int exit_code = system("cat /opt/redpitaya/www/apps/multichannelanalyser/mcpha.bit > /dev/xdevcfg");
 
