@@ -11,7 +11,8 @@
     // App configuration
     APP.config = {};
     APP.config.app_id = 'multichannelanalyser';
-    APP.config.app_url = '/bazaar?start=' + APP.config.app_id + '?' + location.search.substr(1);
+    APP.config.app_url = '/bazaar?start=' + APP.config.app_id;
+	APP.config.stop_url = '/bazaar?stop='+APP.config.app_id;
     APP.config.socket_url = 'ws://' + window.location.hostname + ':9002';
 
     // WebSocket
@@ -32,16 +33,37 @@
                     APP.startApp();
                 } else {
                     console.log('Could not start the application (ERR2)');
-                    APP.startApp();
+                    setTimeout(APP.startApp, 1000);
                 }
             })
             .fail(function() {
                 console.log('Could not start the application (ERR3)');
-                APP.startApp();
+                setTimeout(APP.startApp, 1000);
             });
     };
 
 
+    // Stop template application on server
+    APP.stopApp = function() {
+
+        $.ajax({
+			type:"get",
+			async: false,
+			url: APP.stop_url,
+			success: function(dresult) {
+                if (dresult.status == 'OK') {
+					return true;
+                } else if (dresult.status == 'ERROR') {
+                    console.log(dresult.reason ? dresult.reason : 'Could not stop the application (ERR4)');
+                } else {
+                    console.log('Could not stop the application (ERR5)');
+                }
+            },
+			error: function() {
+                console.log('Could not stop the application (ERR6)');
+            }
+		});
+    };
 
 
     APP.connectWebSocket = function() {
@@ -113,4 +135,10 @@
 $(function() {
     // Start application
     APP.startApp();
+
+	$(window).unload(function(){
+		APP.startApp();
+	});
 });
+
+

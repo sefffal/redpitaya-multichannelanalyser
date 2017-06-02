@@ -24,17 +24,17 @@ all: $(CONTROLLERHF)
 $(CONTROLLERHF):
 	$(MAKE) -C src
 
-$(ZIP): $(CONTROLLERHF) index.html fpga.conf js/app.js css/style.css
+$(ZIP): $(CONTROLLERHF) index.html fpga.conf js/app.js css/style.css src/main.cpp
 	-$(RM) target -rf
 	mkdir -p target/$(APP)
-	cp -r $(CONTROLLERHF) fpga.conf info js css index.html target/$(APP)
+	cp -r $(CONTROLLERHF) fpga.conf info js css index.html mcpha.bit target/$(APP)
 	sed -i target/$(APP)/info/info.json -e 's/REVISION/$(REVISION)/'
 	sed -i target/$(APP)/info/info.json -e 's/BUILD_NUMBER/$(BUILD_NUMBER)/'
 	cd target; zip -r ../$(ZIP) *
 	$(RM) target -rf
 
 install: $(ZIP)
-	unzip $(ZIP) -d $(INSTALL_DIR)/www/apps
+	unzip -o $(ZIP) -d $(INSTALL_DIR)/www/apps
 
 clean:
 	-$(RM) *.so
