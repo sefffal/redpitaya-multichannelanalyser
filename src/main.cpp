@@ -11,14 +11,15 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/sysinfo.h>
+#include <inttypes.h>
 
 #include "main.h"
 
 
 //Signal size
-#define SIGNAL_SIZE_DEFAULT      1024
+#define SIGNAL_SIZE_DEFAULT      16385
 //#define SIGNAL_UPDATE_INTERVAL      10
-#define SIGNAL_UPDATE_INTERVAL      500
+#define SIGNAL_UPDATE_INTERVAL      250
 
 
 
@@ -28,40 +29,62 @@ const char *rp_app_desc(void)
 }
 
 //Signal
-CFloatSignal VOLTAGE("VOLTAGE", SIGNAL_SIZE_DEFAULT, 0.0f);
-std::vector<float> g_data(SIGNAL_SIZE_DEFAULT);
+CFloatSignal HISTOGRAM("HISTOGRAM", SIGNAL_SIZE_DEFAULT, 0.0f);
+std::vector<uint32_t> g_data(SIGNAL_SIZE_DEFAULT);
 
 
 //Parameters
 //CIntParameter(std::string _name, CBaseParameter::AccessMode _access_mode, int _value, int _fpga_update, int _min, int _max)
-CIntParameter COMMAND_CODE("COMMAND_CODE", CBaseParameter::RW, 1, 0, 0, 999);
+CIntParameter COMMAND_CODE("COMMAND_CODE", CBaseParameter::RW, -1, 0, -1, 255);
+CIntParameter COMMAND_CHAN("COMMAND_CHAN", CBaseParameter::RW, 0, 0, 0, 255);
+CIntParameter COMMAND_DATA("COMMAND_DATA", CBaseParameter::RW, 0, 0, -2147483648,  2147483647); // Max range for a 32bit integer
 
-
+int fd;
+volatile uint32_t *slcr, *axi_hp0;
+volatile uint8_t *sts, *cfg, *gen;
+void* hst0;
+void* hst1;
+void *ram, *buf;
+volatile uint8_t *rst[4];
+volatile uint32_t *trg;
 
 int rp_app_init(void)
 {
-    int fd;
-    volatile uint32_t *slcr, *axi_hp0;
-    volatile uint8_t *sts, *cfg, *gen;
-    void *hst[2], *ram, *buf;
-    volatile uint8_t *rst[4];
-    volatile uint32_t *trg;
+
 
 
     fprintf(stderr, "Loading Multi Channel Analyser\n");
 
 
-    // Initialization of API
-    if (rpApp_Init() != RP_OK) 
-    {
-        fprintf(stderr, "Red Pitaya API init failed!\n");
-        return EXIT_FAILURE;
-    }
-    else fprintf(stderr, "Red Pitaya API init success!\n");
+    // Turned off for web dev
+    int exit_code1 = system("cat /opt/redpitaya/fpga/fpga_0.94.bit > /dev/xdevcfg");
+    fprintf(stderr, "Restored system FPGA image? %d\n", exit_code1);
+
+    sleep(1);
 
     int exit_code = system("cat /opt/redpitaya/www/apps/multichannelanalyser/mcpha.bit > /dev/xdevcfg");
 
-    fprintf(stderr, "Loaded FPGA image? %d\n", exit_code);
+    fprintf(stderr, "Loaded MCA FPGA image? %d\n", exit_code);
+    
+    if (exit_code != 0)
+    {
+        perror("Could not load custom FPGA image.");
+        return 1;
+    }
+
+
+    // Turns out we don't want to initialize the API!
+    // This sets up a bunch of FPGA stuff liek oscilooscope,
+    // but we're using a custom FPGA image so avoid this.
+    // // Initialization of API
+    // if (rpApp_Init() != RP_OK) 
+    // {
+    //     fprintf(stderr, "Red Pitaya API init failed!\n");
+    //     return EXIT_FAILURE;
+    // }
+    // else fprintf(stderr, "Red Pitaya API init success!\n");
+
+
 
     // Open /dev/mem so we can memmap for FPGA stuff
     if ((fd = open("/dev/mem", O_RDWR)) < 0)
@@ -77,8 +100,8 @@ int rp_app_init(void)
     trg        = (uint32_t*) mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40002000);
     sts        = (uint8_t*)  mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40000000);
     cfg        = (uint8_t*)  mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40001000);
-    hst[0]     = (char*)     mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40010000);
-    hst[1]     = (char*)     mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40020000);
+    hst0       = (char*)     mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40010000);
+    hst1     = (char*)     mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40020000);
     gen        = (uint8_t*)  mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40030000);
     ram        = (char*)     mmap(NULL, 8192*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x1E000000);
     buf        = (char*)     mmap(NULL, 8192*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
@@ -125,6 +148,42 @@ int rp_app_init(void)
     return 0;
 }
 
+// int custom_load_fpga(void) {
+//         fprintf(stderr, "Loading specific FPGA from: '%s'\n", fpga_name);
+//     /* Try loading FPGA code
+//         *    - Test if fpga loaded correctly
+//         *    - Read/write permissions
+//         *    - File exists/not exists */
+//     switch (rp_bazaar_app_load_fpga(fpga_name)) {
+//         case FPGA_FIND_ERR:
+//             if (fpga_name)  free(fpga_name);
+//             return rp_module_cmd_error(json_root, "Cannot find fpga file.", NULL, r->pool);
+//         case FPGA_READ_ERR:
+//             if (fpga_name)  free(fpga_name);
+//             return rp_module_cmd_error(json_root, "Unable to read FPGA file.", NULL, r->pool);
+//         case FPGA_WRITE_ERR:
+//             if (fpga_name)  free(fpga_name);
+//             return rp_module_cmd_error(json_root, "Unable to write FPGA file into memory.", NULL, r->pool);
+//         /* App is a new app and doesn't need custom fpga.bit */
+//         case FPGA_NOT_REQ:
+//             if (fpga_name)  free(fpga_name);
+//             break;
+//         case FPGA_OK:
+//         {
+//             if (fpga_name)  free(fpga_name);
+//             len = strlen((char *)lc->bazaar_dir.data) + strlen(argv[0]) + strlen("/fpga.sh") + 2;
+//             char dmaDrv[len];
+//             sprintf(dmaDrv, "%s/%s/fpga.sh", lc->bazaar_dir.data, argv[0]);
+//             if (system(dmaDrv))
+//                 fprintf(stderr, "Problem running %s\n", dmaDrv);
+//             break;
+//         }
+//         default:
+//             if (fpga_name)  free(fpga_name);
+//             return rp_module_cmd_error(json_root, "Unknown error.", NULL, r->pool);
+//     }
+// }
+
 
 int rp_app_exit(void)
 {
@@ -163,17 +222,20 @@ void UpdateSignals(void){
     //Read data from pin
     //rp_AIpinGetValue(0, &val);
 
-    float val = 9.0;
+    // float val = 9.0;
 
-    //Push it to vector
-    g_data.erase(g_data.begin());
-    g_data.push_back(val);
+    // //Push it to vector
+    // // Erease first element
+    // g_data.erase(g_data.begin());
+    // // Then add a new element to the end
+    // g_data.push_back(COMMAND_CODE.Value());
 
     //Write data to signal
     for(int i = 0; i < SIGNAL_SIZE_DEFAULT; i++) 
     {
-        VOLTAGE[i] = g_data[i];
+        HISTOGRAM[i] = g_data[i];
     }
+    // fprintf(stderr, "Updating histgoram signal with %d values", SIGNAL_SIZE_DEFAULT);
 }
 
 
@@ -184,9 +246,354 @@ void OnNewParams(void)
 {
     fprintf(stderr, "About to read command code...\n");
     COMMAND_CODE.Update();
+    COMMAND_CHAN.Update();
+    COMMAND_DATA.Update();
 
-    int code = COMMAND_CODE.Value();
+    int code = (uint8_t)  COMMAND_CODE.Value();
+    int chan = (uint8_t)  COMMAND_CHAN.Value();
+    int data = (uint32_t) COMMAND_DATA.Value();
     fprintf(stderr, "Command code: %d\n", code);
+    fprintf(stderr, "Command chan: %d\n", chan);
+    fprintf(stderr, "Command data: %d\n", data);
+
+    // code = (uint8_t)(command >> 56) & 0xff;
+    // chan = (uint8_t)(command >> 52) & 0xf;
+    // data = (uint64_t)(command & 0xfffffffffffffULL);
+
+    if (code==-1) {
+        // Nothing to do
+    }
+    else if(code == 0)
+      {
+        /* reset timer */
+        if(chan == 0)
+        {
+          *rst[0] &= ~2;
+          *rst[0] |= 2;
+        }
+        else if(chan == 1)
+        {
+          *rst[1] &= ~2;
+          *rst[1] |= 2;
+        }
+      }
+      else if(code == 1)
+      {
+        /* reset histogram*/
+        if(chan == 0)
+        {
+          *rst[0] &= ~1;
+          *rst[0] |= 1;
+        }
+        else if(chan == 1)
+        {
+          *rst[1] &= ~1;
+          *rst[1] |= 1;
+        }
+      }
+      else if(code == 2)
+      {
+        /* reset oscilloscope */
+        *rst[2] &= ~3;
+        *rst[2] |= 3;
+      }
+      else if(code == 3)
+      {
+        /* reset generator */
+        *rst[3] &= ~128;
+        *rst[3] |= 128;
+      }
+      else if(code == 4)
+      {
+        /* set sample rate */
+        *(uint16_t *)(cfg + 4) = data;
+      }
+      else if(code == 5)
+      {
+        /* set negator mode (0 for disabled, 1 for enabled) */
+        if(chan == 0)
+        {
+          if(data == 0)
+          {
+            *rst[0] &= ~16;
+          }
+          else if(data == 1)
+          {
+            *rst[0] |= 16;
+          }
+        }
+        else if(chan == 1)
+        {
+          if(data == 0)
+          {
+            *rst[1] &= ~16;
+          }
+          else if(data == 1)
+          {
+            *rst[1] |= 16;
+          }
+        }
+      }
+      else if(code == 6)
+      {
+        /* set baseline mode (0 for none, 1 for auto) */
+        if(chan == 0)
+        {
+          if(data == 0)
+          {
+            *rst[0] &= ~4;
+          }
+          else if(data == 1)
+          {
+            *rst[0] |= 4;
+          }
+        }
+        else if(chan == 1)
+        {
+          if(data == 0)
+          {
+            *rst[1] &= ~4;
+          }
+          else if(data == 1)
+          {
+            *rst[1] |= 4;
+          }
+        }
+      }
+      else if(code == 7)
+      {
+        /* set baseline level */
+        if(chan == 0)
+        {
+          *(uint16_t *)(cfg + 16) = data;
+        }
+        else if(chan == 1)
+        {
+          *(uint16_t *)(cfg + 32) = data;
+        }
+      }
+      else if(code == 8)
+      {
+        /* set pha delay */
+        if(chan == 0)
+        {
+          *(uint16_t *)(cfg + 18) = data;
+        }
+        else if(chan == 1)
+        {
+          *(uint16_t *)(cfg + 34) = data;
+        }
+      }
+      else if(code == 9)
+      {
+        /* set pha min threshold */
+        if(chan == 0)
+        {
+          *(uint16_t *)(cfg + 20) = data;
+        }
+        else if(chan == 1)
+        {
+          *(uint16_t *)(cfg + 36) = data;
+        }
+      }
+      else if(code == 10)
+      {
+        /* set pha max threshold */
+        if(chan == 0)
+        {
+          *(uint16_t *)(cfg + 22) = data;
+        }
+        else if(chan == 1)
+        {
+          *(uint16_t *)(cfg + 38) = data;
+        }
+      }
+      else if(code == 11)
+      {
+        /* set timer */
+        if(chan == 0)
+        {
+          *(uint64_t *)(cfg + 8) = data;
+        }
+        else if(chan == 1)
+        {
+          *(uint64_t *)(cfg + 24) = data;
+        }
+      }
+      // I think this is the start-mca command
+      else if(code == 12)
+      {
+        /* set timer mode (0 for stop, 1 for running) */
+        if(chan == 0)
+        {
+          if(data == 0)
+          {
+            *rst[0] &= ~8;
+          }
+          else if(data == 1)
+          {
+            *rst[0] |= 8;
+          }
+        }
+        else if(chan == 1)
+        {
+          if(data == 0)
+          {
+            *rst[1] &= ~8;
+          }
+          else if(data == 1)
+          {
+            *rst[1] |= 8;
+          }
+        }
+      }
+      else if(code == 13)
+      {
+        /* read timer */
+        if(chan == 0)
+        {
+          data = *(uint64_t *)(sts + 12);
+          fprintf(stderr, "TODO-SEND 0: %llu\n", data);
+          
+          //if(send(sock_client, &data, 8, MSG_NOSIGNAL) < 0) break;
+        }
+        else if(chan == 1)
+        {
+          data = *(uint64_t *)(sts + 20);
+          fprintf(stderr, "TODO-SEND 1\n");
+        //   if(send(sock_client, &data, 8, MSG_NOSIGNAL) < 0) break;
+        }
+      }
+      else if(code == 14)
+      {
+        /* read histogram */
+        // if(chan == 0)
+        // {
+          int bufsize =  SIGNAL_SIZE_DEFAULT*sizeof(float)-4;
+
+          // for (int i=0; i<bufsize; i++) {
+          //   buf[i] = *((chan ==0 ? hst0 : hst1) + i);
+          // }
+          memcpy(buf, chan ==0 ? hst0 : hst1, bufsize);
+          // memcpy(buf, hst[0], SIGNAL_SIZE_DEFAULT*sizeof(float));
+          fprintf(stderr, "TODO-SEND 2: %d\n", bufsize);
+          
+          // memcpy(g_data.data(), hst[0], SIGNAL_SIZE_DEFAULT*sizeof(float));
+          memcpy(g_data.data(), buf, bufsize);
+
+          uint32_t total = 0;
+          for (int i=0; i< bufsize; i+=4) {
+            uint32_t f = *(uint32_t *)(buf + i);
+            total += f;
+            // fprintf(stderr, "\t%f", i, f);
+            // if (i%20==0) {
+            //   fprintf(stderr, "\n");
+            // }
+          }
+          fprintf(stderr, "Total counts: %" PRIu32 "\n", total);
+
+          // g_data = std::vector<float>
+        //   if(send(sock_client, buf, 65536, MSG_NOSIGNAL) < 0) break;
+        // }
+        // else if(chan == 1)
+        // {
+        //   memcpy(buf, hst[1], 65536);
+        //   fprintf(stderr, "TODO-SEND 3\n");
+        // //   if(send(sock_client, buf, 65536, MSG_NOSIGNAL) < 0) break;
+        // }
+      }
+                // else if(code == 15)
+                // {
+                //   /* set trigger source (0 for channel 1, 1 for channel 2) */
+                //   if(chan == 0)
+                //   {
+                //     trg[16] = 0;
+                //     trg[0] = 2;
+                //   }
+                //   else if(chan == 1)
+                //   {
+                //     trg[16] = 1;
+                //     trg[0] = 2;
+                //   }
+                // }
+                // else if(code == 16)
+                // {
+                //   /* set trigger slope (0 for rising, 1 for falling) */
+                //   if(data == 0)
+                //   {
+                //     *rst[2] &= ~4;
+                //   }
+                //   else if(data == 1)
+                //   {
+                //     *rst[2] |= 4;
+                //   }
+                // }
+                // else if(code == 17)
+                // {
+                //   /* set trigger mode (0 for normal, 1 for auto) */
+                //   if(data == 0)
+                //   {
+                //     *rst[2] &= ~8;
+                //   }
+                //   else if(data == 1)
+                //   {
+                //     *rst[2] |= 8;
+                //   }
+                // }
+                // else if(code == 18)
+                // {
+                //   /* set trigger level */
+                //   *(uint16_t *)(cfg + 80) = data;
+                // }
+                // else if(code == 19)
+                // {
+                //   /* set number of samples before trigger */
+                //   *(uint32_t *)(cfg + 72) = data - 1;
+                // }
+                // else if(code == 20)
+                // {
+                //   /* set total number of samples */
+                //   *(uint32_t *)(cfg + 76) = data - 1;
+                // }
+                // else if(code == 21)
+                // {
+                //   /* start oscilloscope */
+                //   *rst[2] |= 16;
+                //   *rst[2] &= ~16;
+                // }
+                // else if(code == 22)
+                // {
+                //   /* read oscilloscope status */
+                //   *(uint32_t *)buf = *(uint32_t *)(sts + 44) & 1;
+                //   fprintf(stderr, "TODO-SEND OSC STATUS %d\n", sts[44]&1);
+                  
+                //   //if(send(sock_client, buf, 4, MSG_NOSIGNAL) < 0) break;
+                // }
+                // else if(code == 23)
+                // {
+        /* read oscilloscope data */
+        // pre = *(uint32_t *)(cfg + 72) + 1;
+        // tot = *(uint32_t *)(cfg + 76) + 1;
+        // start = *(uint32_t *)(sts + 44) >> 1;
+        // start = (start - pre) & 0x007FFFFF;
+        // if(start + tot <= 0x007FFFFF)
+        // {
+        //   memcpy(buf, ram + start * 4, tot * 4);
+        //   fprintf(stderr, "TODO-SEND OSC DATA");
+        // //   if(send(sock_client, buf, tot * 4, MSG_NOSIGNAL) < 0) break;
+        // }
+        // else
+        // {
+        //   fprintf(stderr, "TODO-SEND OSC DATA2");
+        //   memcpy(buf, ram + start * 4, (0x007FFFFF - start) * 4);
+        // //   if(send(sock_client, buf, (0x007FFFFF - start) * 4, MSG_NOSIGNAL) < 0) break;
+        //   memcpy(buf, ram, (start + tot - 0x007FFFFF) * 4);
+        // //   if(send(sock_client, buf, (start + tot - 0x007FFFFF) * 4, MSG_NOSIGNAL) < 0) break;
+        // }
+      // } 
+      else{
+          fprintf(stderr, "UNKOWN CODE: %d\n", code);
+      }
 }
 
 

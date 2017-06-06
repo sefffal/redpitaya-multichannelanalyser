@@ -25,11 +25,16 @@
     // Parameters
     APP.processing = false;
 
+    APP.channel = 0;
+
 
 
 
     // Starts template application on server
     APP.startApp = function() {
+        $('#hello_message.text').text('Connecting...');
+
+        APP.createChart();
 
         $.get(APP.config.app_url)
             .done(function(dresult) {
@@ -37,14 +42,20 @@
 					window.setTimeout(APP.connectWebSocket, 1000);
                 } else if (dresult.status == 'ERROR') {
                     console.log(dresult.reason ? dresult.reason : 'Could not start the application (ERR1)');
+                    $('#hello_message_text').text(dresult.reason ? dresult.reason : 'Could not start the application (ERR1). Retrying in 1s...');
+                    $('#loader').addClass("error");  
                     APP.startApp();
                 } else {
                     console.log('Could not start the application (ERR2)');
+                    $('#hello_message_text').text('Could not start the application (ERR2). Retrying in 1s...');
+                    $('#loader').addClass("error");  
                     setTimeout(APP.startApp, 1000);
                 }
             })
             .fail(function() {
                 console.log('Could not start the application (ERR3)');
+                $('#hello_message.text').text('Could not start the application (ERR3). Retrying in 1s...');
+                $('#hello_message').addClass("error");  
                 setTimeout(APP.startApp, 1000);
             });
     };
@@ -62,11 +73,26 @@
 					return true;
                 } else if (dresult.status == 'ERROR') {
                     console.log(dresult.reason ? dresult.reason : 'Could not stop the application (ERR4)');
+                    $('#loader').addClass("error");   
+                    $('#loader').removeClass("hidden");
+                    $('#loader').removeClass("hide");
+                    $('#hello_message').text(dresult.reason ? dresult.reason : 'Could not stop the application (ERR4)');
+                    $('#hello_message').addClass("error");  
                 } else {
                     console.log('Could not stop the application (ERR5)');
+                    $('#loader').addClass("error");   
+                    $('#loader').removeClass("hidden");
+                    $('#loader').removeClass("hide");
+                    $('#hello_message').text('Could not stop the application (ERR5)');
+                    $('#hello_message').addClass("error");  
                 }
             },
 			error: function() {
+                $('#loader').addClass("error");   
+                $('#loader').removeClass("hidden");
+                $('#loader').removeClass("hide");
+                $('#hello_message').text('Could not stop the application (ERR6)');
+                $('#hello_message').addClass("error");  
                 console.log('Could not stop the application (ERR6)');
             }
 		});
@@ -91,8 +117,13 @@
         if (APP.ws) {
 
             APP.ws.onopen = function() {
-                $('#hello_message').text("Hello, Red Pitaya!");
-                console.log('Socket opened');               
+                $('#hello_message').text("Ready");
+                $('#loader').addClass("hide");
+                setTimeout(function(){
+                    $('#loader').addClass("hidden"); 
+                }, 250);
+                console.log('Socket opened');
+                APP.startRunLoop();
             };
 
             APP.ws.onclose = function() {
@@ -101,11 +132,11 @@
 
             APP.ws.onerror = function(ev) {
                 $('#hello_message').text("Connection error");
-                console.log('Websocket error: ', ev);         
+                $('#hello_message').addClass("error");    
+                console.log('Websocket error: ', ev);
             };
 
             APP.ws.onmessage = function(ev) {
-                console.log('Message recieved');
 
                 //Capture signals
                 if (APP.processing) {
@@ -139,41 +170,164 @@
         }
     };
 
-    // Do something with the data
-    window.setInterval(function(){
-        // if (APP.processing) {
-        //     return;
+
+
+    APP.startRunLoop = function() {
+
+        setInterval(function() {
+            // Trigger reading of histgoram for next time
+            APP.readHistogram(APP.channel);
+        }, 250);
+
+    };
+
+    APP._runLoop = function() {
+
+        // Update chart with latest values
+        if (APP.latestSignals && APP.latestSignals.HISTOGRAM) {
+            APP.updateChartData(APP.latestSignals.HISTOGRAM.value);
+        }
+
+        // Run again
+        setTimeout(APP.startRunLoop, 500);
+    };
+
+    APP.sendCommand = function(code, chan, data) {
+        var msg = {
+            parameters:{
+                "COMMAND_CODE": {value: code},
+                "COMMAND_CHAN": {value: chan},
+                "COMMAND_DATA": {value: data},
+            }
+        }
+        var serialized = JSON.stringify(msg);
+        APP.ws.send(serialized);
+    };
+
+    APP.resumeMCA = function(channel) {
+        APP.sendCommand(12, channel, 1);
+    }
+    APP.stopMCA = function(channel) {
+        if (channel !== 0 && channel !== 1) {
+            throw "Invalid Argument: Must have channel number 0 or 1";
+        }
+        APP.sendCommand(12, channel, 0);
+    }
+
+    APP.readHistogram = function(channel) {
+        if (channel !== 0 && channel !== 1) {
+            throw "Invalid Argument: Must have channel number 0 or 1";
+        }
+        APP.sendCommand(14, channel, 0); // Read histogram
+    }
+
+    APP.resetHistogram = function(channel) {
+        if (channel !== 0 && channel !== 1) {
+            throw "Invalid Argument: Must have channel number 0 or 1";
+        }
+        APP.sendCommand(1, channel, 0); // Reset histogram
+    }
+
+    APP.createChart = function() {
+        var empty_data = []
+        for (var i=0; i<16385; i++) {
+            empty_data[i] = 0;
+        }
+
+        var logLines = [];
+        // TODO: yaxis log lines
+        // for (var i=0; i<10; i++) {
+        //     for (var j=0; j<10; j++) {
+
+        //     }
         // }
 
-        document.getElementById("output").textContent = JSON.stringify(APP.latestSignals, null, 2);
+        APP.chart = Highcharts.chart('histogram-container', {
+            chart: {
+                type: 'column',
+                // backgroundColor:'rgba(255, 255, 255, 0)',
+                backgroundColor: 'transparent',
+                zoomType: 'xy',
+            },
+            plotOptions: {
+                column: {
+                    animation: true,
+                    shadow: false,
+                    enableMouseTracking:true,
+                    pointPadding: 0.0,
+                    borderWidth: 0,
+                    groupPadding: 0,
+                    pointPlacement: 'between'
+                }
+            },
+            title: {
+                text: '',
+                enabled: false
+            },
+            xAxis: {
+                crosshair: true,
+                text: 'Channel Number'
+            },
+            yAxis: {
+                min: 0,
+                // max: 1e10,
+                max: 10,
+                // type: 'logarithmic',
+                title: {
+                    text: 'Counts'
+                },
+                tickPositions: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                labels: {
+                    formatter: function() {
+                        return "1E"+this.value;
+                    }
+                },
+                plotLines: logLines
+            },
+            tooltip: {
+                borderWidth: 1,
+                borderColor: '#63A0DD',
+                shadow: false,
+                pointFormatter: function() {
+                    var counts = 0;
+                    if (this.y>0) {
+                        counts = Math.pow(10, this.y);
+                    }
+                    counts = Math.round(counts);
+                    return "Channel "+this.x+": "+counts+" counts"; 
+                },
+                positioner: function(labelWidth, labelHeight, point) {
+                    return {x:point.plotX, y:5}
+                },
+                // useHTML: true
+            },
+            series: [{
+                name: 'Input 1',
+                data: empty_data,
+                color: '#63A0DD'
+            }]
+        });
+    };
 
-    }, 500);
+    APP.updateChartData = function(values) {
+        if (!APP.chart) {
+            return;
+        }
 
+        // Upon receiving an update, we know the app is running so set start button text
+        $('#start').text("STOP");
 
-
-	// APP.led_state = false;
-
-
-	// // program checks if led_state button was clicked
-   	// $('#led_state').click(function() {
-
-    //     // changes local led state
-    //     if (APP.led_state == true){
-    //         $('#led_on').hide();
-    //         $('#led_off').show();
-    //         APP.led_state = false;
-    //     }
-    //     else{
-    //         $('#led_off').hide();
-    //         $('#led_on').show();
-    //         APP.led_state = true;
-    //     }
-
-    // 	// sends current led state to backend
-    // 	var local = {};
-    // 	local['LED_STATE'] = { value: APP.led_state };
-    // 	APP.ws.send(JSON.stringify({ parameters: local }));
-	// });
+        var logged_values = [];
+        for (var i=values.length-1; i>=0; i--) {
+            if (values[i]===0) {
+                logged_values[i] = 0;
+            }
+            else {
+                logged_values[i] = Math.log10(values[i]);
+            }
+        }
+        APP.chart.series[0].setData(logged_values, true);//, true, true);
+    }
 
 }(window.APP = window.APP || {}, jQuery));
 
@@ -183,9 +337,25 @@ $(function() {
     // Start application
     APP.startApp();
 
-	$(window).unload(function(){
-		APP.startApp();
-	});
+    // Stop application the way out
+	// $(window).bind('beforeunload', function(){
+	// 	APP.stopApp();
+	// });
+
+    $('#start').click(function() {
+        if ($('#start').text() == 'START') {
+            $('#start').text('...');
+            APP.resumeMCA(APP.channel);
+        }
+        else {
+            APP.stopMCA(APP.channel);
+            $('#start').text('RESUME');
+        }
+    });
+
+    $('#reset').click(function() {
+        APP.resetHistogram(APP.channel);
+    })
 });
 
 
