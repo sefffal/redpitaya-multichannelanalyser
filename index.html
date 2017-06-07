@@ -12,15 +12,16 @@
 <html lang="en">
 
 <head>
-    <meta http-equiv="content-type" content="text/html; charset=utf-8"></meta>
-    <title>Multichannel Analyser</title>
-    <link rel="stylesheet" href="css/style.css">
+	<meta http-equiv="content-type" content="text/html; charset=utf-8"></meta>
+	<title>Multichannel Analyser</title>
+	<link rel="stylesheet" href="css/style.css">
 	<script src="https://code.highcharts.com/highcharts.js"></script>
 	<script src="https://code.highcharts.com/modules/exporting.js"></script>
 	<script src="https://code.highcharts.com/modules/boost.js"></script>
-    <script src="js/jquery-2.1.3.min.js"></script>
+	<script src="js/jquery-2.1.3.min.js"></script>
+	<script src="js/jquery.ba-throttle-debounce.min.js"></script>
 	<script src="js/pako.js"></script>
-    <script src="js/app.js"></script>
+	<script src="js/app.js"></script>
 
 	<!-- Fix mobile device screen zoom-->
 	<meta name="viewport" content="width=device-width, initial-scale=1">
@@ -35,55 +36,80 @@
 </head>
 
 <body>
-   	<div id='content'>
-		<h1 id="title">Multichannel Analyser</h1>
-		<div id="controls">
-			<div class="group timer">
-				<h2>Capture Time</h2>
+	<h1 id="title">
+		<a class="home-link" href="/">
+			<img class="navigation-arrow-left" src="assets/navigation_arrow_left.png">
+			<img class="navigation-logo" src="assets/navigation_logo.png">
+		</a>
+		Multichannel Analyser
+	</h1>
+	<div id="content">
+		<!-- Time and Input Select -->
+		<div class="group timer">
+			<h2>Capture Time</h2>
+			<label>
+				<input type="number" id="hours" value="0">
+				Hours
+			</label>
 				<label>
-					<input type="number" id="hours"     value="0"/>
-					Hours
-				</label>
+				<input type="number" id="minutes" value="5">
+				Minutes
+			</label>
 				<label>
-					<input type="number" id="minutes" value="5"/>
-					Minutes
-				</label>
-				<label>
-					<input type="number" id="seconds" value="0"/>
-					Seconds
-				</label>
-			</div>
+				<input type="number" id="seconds" value="0">
+				Seconds
+			</label>
+		</div>
+		
+		<!-- Input Select-->
+		<div class="group input">
+			<h2>Input</h2>
+			<label>
+				<select>
+					<option value="1">IN1-POS</option>
+					<option value="2">IN2-POS</option>
+					<option value="3">IN1-NEG</option>
+					<option value="4">IN2-NEG</option>
+				</select>
+			</label>
+		</div>
+
+		<!-- Control buttons -->
+		<div class="group buttons">
 			<button id="start">START</button>
 			<button id="reset">RESET</button>
 			<button id="import">IMPORT</button>
 			<button id="export">EXPORT</button>
 		</div>
-		<table id="info">
-			<tr>
-				<td>Livetime</td>
-				<td id="livetime">0</td>
-				<td>s</td>
-			</tr>
-			<tr>
-				<td>Rate</td>
-				<td id="rate">0</td>
-				<td>Hz</td>
-			</tr>
-			<tr>
-				<td>Total counts</td>
-				<td id="total-counts">0</td>
-				<td>#</td>
-			</tr>
+
+		<table id="info" class="group info">
+			<tbody>
+				<tr>
+					<td>Livetime</td>
+					<td id="livetime">0</td>
+					<td>s</td>
+				</tr>
+				<tr>
+					<td>Rate</td>
+					<td id="rate">0</td>
+					<td>Hz</td>
+				</tr>
+				<tr>
+					<td>Total counts</td>
+					<td id="total-counts">0</td>
+					<td>#</td>
+				</tr>
+			</tbody>
 		</table>
-   	</div>
-	<div id="histogram-container">
-		<div id="histogram"></div>
+
+		<div class="group" id="histogram-container"></div>
 	</div>
-	<div id="loader" >
-   		<div id='hello_message'>
+	<div id="loader">
+		<div id='hello_message'>
 			<div class="hello_message_text">Starting...</div>
 			<div class="loader"></div>
 		</div>
 	</div>
 </body>
+
 </html>

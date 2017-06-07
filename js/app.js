@@ -343,6 +343,7 @@
                 borderWidth: 1,
                 borderColor: '#63A0DD',
                 shadow: false,
+                headerFormat: '',
                 pointFormatter: function() {
                     var counts = 0;
                     if (this.y>0) {
@@ -395,7 +396,7 @@
     }
 
     APP.updateButtonStates = function() {
-        $('#hours, #minutes, #seconds').prop('disabled', false);
+        $('#hours, #minutes, #seconds').prop('disabled', true);
 
         if (APP.status != APP.last_sent_status) {
             $('#start').text('...');
@@ -408,16 +409,18 @@
         switch(APP.status) {
             case 0:
                 $('#start').text('START');
+                $('#hours, #minutes, #seconds').prop('disabled', false);                
                 break
             case 1:
                 $('#start').text('STOP');
-                $('#hours, #minutes, #seconds').prop('disabled', true);
                 break
             case 2:
                 $('#start').text('RESUME');
+                $('#hours, #minutes, #seconds').prop('disabled', false);                
                 break
             default:
                 $('#start').text('ERROR');
+                $('#hours, #minutes, #seconds').prop('disabled', false);                
         }
     }
 
@@ -458,28 +461,56 @@ $(function() {
         // 2 : stopped
         switch(APP.status) {
             case 0:
-                $('#start').text('...');
                 APP.resumeMCA(APP.channel, timeleft_s);
                 APP.last_sent_status = 1;
                 break
             case 1:
-                $('#start').text('...');
                 APP.stopMCA(APP.channel);
                 APP.last_sent_status = 2;
                 break
             case 2:
-                $('#start').text('...');
                 APP.resumeMCA(APP.channel, timeleft_s);
                 APP.last_sent_status = 1;
                 break
             default:
                 break
         }
+        APP.updateButtonStates();
     });
 
     $('#reset').click(function() {
         APP.resetHistogram(APP.channel);
     })
+
+    // Highcharts don't handle css grids very well, so recreate chart on resize
+    $(window).resize($.debounce(250, function() {
+        console.log("Recreating chart (resize event)");
+        if (!APP.chart) {
+            return;
+        }
+        var zoom_extremesx = APP.chart.xAxis[0].getExtremes();
+        var zoom_extremesy = APP.chart.yAxis[0].getExtremes();
+        APP.chart.destroy();
+        APP.createChart();
+        APP.chart.reflow();
+        setTimeout(function() {
+            APP.chart.xAxis[0].setExtremes(
+                zoom_extremesx.min,
+                zoom_extremesx.max,
+                true, // Redraw
+                false // Animation
+            );
+            APP.chart.yAxis[0].setExtremes(
+                zoom_extremesy.min,
+                zoom_extremesy.max,
+                true, // Redraw
+                false // Animation
+            );
+            if( !APP.chart.resetZoomButton ) {
+                APP.chart.showResetZoom();
+            }
+        })
+    }));
 });
 
 
