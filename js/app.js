@@ -27,6 +27,8 @@
 
     APP.channel = 0;
 
+    APP.status = APP.last_sent_status = 0;
+
 
 
 
@@ -155,7 +157,7 @@
                     }
 
                     if (receive.signals) {
-                        APP.latestSignals = receive.signals
+                        APP.latestSignals = receive.signals;
                     }
                     APP.processing = false;
                 } catch (e) {
@@ -177,7 +179,9 @@
         setInterval(function() {
             // Trigger reading of histgoram for next time
             APP.readHistogram(APP.channel);
-        }, 250);
+        }, 750);
+
+        APP._runLoop();
 
     };
 
@@ -186,6 +190,10 @@
         // Update chart with latest values
         if (APP.latestSignals && APP.latestSignals.HISTOGRAM) {
             APP.updateChartData(APP.latestSignals.HISTOGRAM.value);
+        }
+        if (APP.latestSignals && APP.latestSignals.STATUS) {
+            APP.status = APP.latestSignals.STATUS.value[APP.channel];
+            APP.updateButtonStates();
         }
 
         // Run again
@@ -204,8 +212,47 @@
         APP.ws.send(serialized);
     };
 
-    APP.resumeMCA = function(channel) {
-        APP.sendCommand(12, channel, 1);
+    APP.resumeMCA = function(channel, timeleft_s) {
+
+        // Set decimation to 16
+        APP.setDecimation(channel, 16);
+        
+        // Send timer = (milliseconds*125000)
+
+        // Send base update command 6, channel, type?
+        APP.sendCommand(6, APP.channel, 0); // No baseline
+        
+        // Send base val command 7, channel, baseline
+        APP.sendCommand(7, APP.channel, 0); // No baseline
+        
+        // Send PHA delay update command 8 channel 100?
+        APP.sendCommand(8, APP.channel, 100);
+
+        // Send thrs_update  command 9min, channel, min; command 10max channel max
+        APP.sendCommand(9, APP.channel, 0);
+        APP.sendCommand(10, APP.channel, 16380);
+
+        // alert("Time: "+timeleft_s*125000+" "+timeleft_s);
+
+        // counter setup
+        APP.sendCommand(11, APP.channel, timeleft_s); // Set timer
+        APP.sendCommand(0, APP.channel, 0); // Reset timer -- why are these different?
+
+            // Send base update command 6, channel, type?
+            APP.sendCommand(6, APP.channel, 0); // No baseline
+            
+            // Send base val command 7, channel, baseline
+            APP.sendCommand(7, APP.channel, 0); // No baseline
+            
+            // Send PHA delay update command 8 channel 100?
+            APP.sendCommand(8, APP.channel, 100);
+
+            // Send thrs_update  command 9min, channel, min; command 10max channel max
+            APP.sendCommand(9, APP.channel, 0);
+            APP.sendCommand(10, APP.channel, 16380);
+
+        // Send start command
+        APP.sendCommand(12, APP.channel, 1);
     }
     APP.stopMCA = function(channel) {
         if (channel !== 0 && channel !== 1) {
@@ -213,7 +260,12 @@
         }
         APP.sendCommand(12, channel, 0);
     }
-
+    APP.setDecimation = function(channel, decimation) {
+        if (decimation<4) {
+            throw "Decimation should porbably be at least 4";
+        }
+        APP.sendCommand(4, channel, decimation);
+    }
     APP.readHistogram = function(channel) {
         if (channel !== 0 && channel !== 1) {
             throw "Invalid Argument: Must have channel number 0 or 1";
@@ -230,9 +282,9 @@
 
     APP.createChart = function() {
         var empty_data = []
-        for (var i=0; i<16385; i++) {
-            empty_data[i] = 0;
-        }
+        // for (var i=0; i<16385; i++) {
+        //     empty_data[i] = 0;
+        // }
 
         var logLines = [];
         // TODO: yaxis log lines
@@ -257,7 +309,8 @@
                     pointPadding: 0.0,
                     borderWidth: 0,
                     groupPadding: 0,
-                    pointPlacement: 'between'
+                    pointPlacement: 'on',
+                    pointRange: 1,
                 }
             },
             title: {
@@ -266,7 +319,9 @@
             },
             xAxis: {
                 crosshair: true,
-                text: 'Channel Number'
+                text: 'Channel Number',
+                min: 0,
+                max: 16385
             },
             yAxis: {
                 min: 0,
@@ -318,15 +373,52 @@
         $('#start').text("STOP");
 
         var logged_values = [];
-        for (var i=values.length-1; i>=0; i--) {
+        // for (var i=values.length-1; i>=0; i--) {
+        //     if (values[i]===0) {
+        //         logged_values[i] = 0;
+        //     }
+        //     else {
+        //         logged_values[i] = Math.log10(values[i]);
+        //     }
+        // }
+        for (var i=0, l=values.length; i<l; i++) {
             if (values[i]===0) {
-                logged_values[i] = 0;
             }
             else {
-                logged_values[i] = Math.log10(values[i]);
+                logged_values.push([
+                    i,
+                    Math.log10(values[i])
+                ]);
             }
         }
         APP.chart.series[0].setData(logged_values, true);//, true, true);
+    }
+
+    APP.updateButtonStates = function() {
+        $('#hours, #minutes, #seconds').prop('disabled', false);
+
+        if (APP.status != APP.last_sent_status) {
+            $('#start').text('...');
+            return;
+        }
+
+        // 0 : not started
+        // 1 : running
+        // 2 : stopped
+        switch(APP.status) {
+            case 0:
+                $('#start').text('START');
+                break
+            case 1:
+                $('#start').text('STOP');
+                $('#hours, #minutes, #seconds').prop('disabled', true);
+                break
+            case 2:
+                $('#start').text('RESUME');
+                break
+            default:
+                $('#start').text('ERROR');
+        }
     }
 
 }(window.APP = window.APP || {}, jQuery));
@@ -342,14 +434,46 @@ $(function() {
 	// 	APP.stopApp();
 	// });
 
+
     $('#start').click(function() {
-        if ($('#start').text() == 'START') {
-            $('#start').text('...');
-            APP.resumeMCA(APP.channel);
+
+        // Calculate the amount of time in milliseconds to run for
+        var timeleft_s = Math.round(
+            parseInt($('#hours'  ).val())*3600 +
+            parseInt($('#minutes').val())*60 +
+            parseInt($('#seconds').val())*1
+        );
+
+        if (timeleft_s > 2147483647) { // Max unsighed 32 bit value
+            alert("That's too long. Pick a shorter time.");
+            return;
         }
-        else {
-            APP.stopMCA(APP.channel);
-            $('#start').text('RESUME');
+
+        if (APP.last_sent_status !== APP.status) {
+            return false;
+        }
+
+        // 0 : not started
+        // 1 : running
+        // 2 : stopped
+        switch(APP.status) {
+            case 0:
+                $('#start').text('...');
+                APP.resumeMCA(APP.channel, timeleft_s);
+                APP.last_sent_status = 1;
+                break
+            case 1:
+                $('#start').text('...');
+                APP.stopMCA(APP.channel);
+                APP.last_sent_status = 2;
+                break
+            case 2:
+                $('#start').text('...');
+                APP.resumeMCA(APP.channel, timeleft_s);
+                APP.last_sent_status = 1;
+                break
+            default:
+                break
         }
     });
 

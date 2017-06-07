@@ -19,7 +19,7 @@
 //Signal size
 #define SIGNAL_SIZE_DEFAULT      16385
 //#define SIGNAL_UPDATE_INTERVAL      10
-#define SIGNAL_UPDATE_INTERVAL      250
+#define SIGNAL_UPDATE_INTERVAL      350
 
 
 
@@ -32,12 +32,17 @@ const char *rp_app_desc(void)
 CFloatSignal HISTOGRAM("HISTOGRAM", SIGNAL_SIZE_DEFAULT, 0.0f);
 std::vector<uint32_t> g_data(SIGNAL_SIZE_DEFAULT);
 
+// Status of input 0 and 1 MCA
+CIntSignal STATUS("STATUS", CBaseParameter::RW, 2, 0);
+// 0: Not Started
+// 1: Stopped
+// 2: Running
 
 //Parameters
 //CIntParameter(std::string _name, CBaseParameter::AccessMode _access_mode, int _value, int _fpga_update, int _min, int _max)
 CIntParameter COMMAND_CODE("COMMAND_CODE", CBaseParameter::RW, -1, 0, -1, 255);
 CIntParameter COMMAND_CHAN("COMMAND_CHAN", CBaseParameter::RW, 0, 0, 0, 255);
-CIntParameter COMMAND_DATA("COMMAND_DATA", CBaseParameter::RW, 0, 0, -2147483648,  2147483647); // Max range for a 32bit integer
+CIntParameter COMMAND_DATA("COMMAND_DATA", CBaseParameter::RW, 0, 0, 0,  2147483647); // Max range for a 32bit integer
 
 int fd;
 volatile uint32_t *slcr, *axi_hp0;
@@ -47,6 +52,7 @@ void* hst1;
 void *ram, *buf;
 volatile uint8_t *rst[4];
 volatile uint32_t *trg;
+int status[2];
 
 int rp_app_init(void)
 {
@@ -54,6 +60,9 @@ int rp_app_init(void)
 
 
     fprintf(stderr, "Loading Multi Channel Analyser\n");
+
+    status[0] = 0;
+    status[1] = 0;
 
 
     // Turned off for web dev
@@ -74,7 +83,7 @@ int rp_app_init(void)
 
 
     // Turns out we don't want to initialize the API!
-    // This sets up a bunch of FPGA stuff liek oscilooscope,
+    // This sets up a bunch of FPGA stuff like oscilooscope,
     // but we're using a custom FPGA image so avoid this.
     // // Initialization of API
     // if (rpApp_Init() != RP_OK) 
@@ -218,24 +227,15 @@ int rp_get_signals(float ***s, int *sig_num, int *sig_len)
 
 
 void UpdateSignals(void){
-    
-    //Read data from pin
-    //rp_AIpinGetValue(0, &val);
 
-    // float val = 9.0;
-
-    // //Push it to vector
-    // // Erease first element
-    // g_data.erase(g_data.begin());
-    // // Then add a new element to the end
-    // g_data.push_back(COMMAND_CODE.Value());
+    STATUS[0] = status[0];
+    STATUS[1] = status[1];
 
     //Write data to signal
     for(int i = 0; i < SIGNAL_SIZE_DEFAULT; i++) 
     {
         HISTOGRAM[i] = g_data[i];
     }
-    // fprintf(stderr, "Updating histgoram signal with %d values", SIGNAL_SIZE_DEFAULT);
 }
 
 
@@ -244,23 +244,29 @@ void UpdateParams(void){}
 
 void OnNewParams(void) 
 {
-    fprintf(stderr, "About to read command code...\n");
     COMMAND_CODE.Update();
     COMMAND_CHAN.Update();
     COMMAND_DATA.Update();
 
     int code = (uint8_t)  COMMAND_CODE.Value();
     int chan = (uint8_t)  COMMAND_CHAN.Value();
-    int data = (uint32_t) COMMAND_DATA.Value();
-    fprintf(stderr, "Command code: %d\n", code);
-    fprintf(stderr, "Command chan: %d\n", chan);
-    fprintf(stderr, "Command data: %d\n", data);
+    uint32_t data = (uint32_t) COMMAND_DATA.Value();
+
+    if (code!=14) {
+      fprintf(stderr, "-------------------\n");
+      fprintf(stderr, "Command code: %d\n", code);
+      fprintf(stderr, "Command chan: %d\n", chan);
+      fprintf(stderr, "Command data: %d\n", data);
+    }
 
     // code = (uint8_t)(command >> 56) & 0xff;
     // chan = (uint8_t)(command >> 52) & 0xf;
     // data = (uint64_t)(command & 0xfffffffffffffULL);
 
-    if (code==-1) {
+    if (chan < 0 || chan > 1) {
+      fprintf(stderr, "Channel must be 0 or 1");
+    }
+    else if (code==-1) {
         // Nothing to do
     }
     else if(code == 0)
@@ -413,16 +419,18 @@ void OnNewParams(void)
         /* set timer */
         if(chan == 0)
         {
-          *(uint64_t *)(cfg + 8) = data;
+          *(uint64_t *)(cfg + 8) = ((uint64_t)data)*125000000ULL;
         }
         else if(chan == 1)
         {
-          *(uint64_t *)(cfg + 24) = data;
+          *(uint64_t *)(cfg + 24) = data*125000000;
         }
       }
       // I think this is the start-mca command
       else if(code == 12)
       {
+        // Update status signal
+        status[chan] = (data == 0 ? 2 : 1);
         /* set timer mode (0 for stop, 1 for running) */
         if(chan == 0)
         {
@@ -467,40 +475,20 @@ void OnNewParams(void)
       else if(code == 14)
       {
         /* read histogram */
-        // if(chan == 0)
         // {
-          int bufsize =  SIGNAL_SIZE_DEFAULT*sizeof(float)-4;
-
-          // for (int i=0; i<bufsize; i++) {
-          //   buf[i] = *((chan ==0 ? hst0 : hst1) + i);
-          // }
+          int bufsize = (SIGNAL_SIZE_DEFAULT-1)*sizeof(uint32_t);
           memcpy(buf, chan ==0 ? hst0 : hst1, bufsize);
-          // memcpy(buf, hst[0], SIGNAL_SIZE_DEFAULT*sizeof(float));
-          fprintf(stderr, "TODO-SEND 2: %d\n", bufsize);
-          
-          // memcpy(g_data.data(), hst[0], SIGNAL_SIZE_DEFAULT*sizeof(float));
+
           memcpy(g_data.data(), buf, bufsize);
 
-          uint32_t total = 0;
-          for (int i=0; i< bufsize; i+=4) {
-            uint32_t f = *(uint32_t *)(buf + i);
-            total += f;
-            // fprintf(stderr, "\t%f", i, f);
-            // if (i%20==0) {
-            //   fprintf(stderr, "\n");
-            // }
-          }
-          fprintf(stderr, "Total counts: %" PRIu32 "\n", total);
+          // uint32_t total = 0;
+          // for (int i=0; i< bufsize; i+=4) {
+          //   uint32_t f = *(uint32_t *)(buf + i);
+          //   total += f;
+          // }
+          // fprintf(stderr, "Total counts: %" PRIu32 "\n", total);
 
-          // g_data = std::vector<float>
-        //   if(send(sock_client, buf, 65536, MSG_NOSIGNAL) < 0) break;
-        // }
-        // else if(chan == 1)
-        // {
-        //   memcpy(buf, hst[1], 65536);
-        //   fprintf(stderr, "TODO-SEND 3\n");
-        // //   if(send(sock_client, buf, 65536, MSG_NOSIGNAL) < 0) break;
-        // }
+
       }
                 // else if(code == 15)
                 // {

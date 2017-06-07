@@ -24,7 +24,7 @@ all: $(CONTROLLERHF)
 $(CONTROLLERHF):
 	$(MAKE) -C src
 
-$(ZIP): $(CONTROLLERHF) index.html fpga.conf js/app.js css/style.css src/main.cpp
+$(ZIP): $(CONTROLLERHF) index.html fpga.conf js/app.js css/style.css src/main.cpp assets/*
 	-$(RM) target -rf
 	mkdir -p target/$(APP)
 	cp -r $(CONTROLLERHF) fpga.conf info js css index.html mcpha.bit target/$(APP)
