@@ -38,6 +38,11 @@ CIntSignal STATUS("STATUS", CBaseParameter::RW, 2, 0);
 // 1: Stopped
 // 2: Running
 
+// Timer for inputs 0 and 1 of MCA
+CIntSignal TIMER("TIMER", CBaseParameter::RW, 2, 0);
+
+
+
 //Parameters
 //CIntParameter(std::string _name, CBaseParameter::AccessMode _access_mode, int _value, int _fpga_update, int _min, int _max)
 CIntParameter COMMAND_CODE("COMMAND_CODE", CBaseParameter::RW, -1, 0, -1, 255);
@@ -53,6 +58,7 @@ void *ram, *buf;
 volatile uint8_t *rst[4];
 volatile uint32_t *trg;
 int status[2];
+int timer[2];
 
 int rp_app_init(void)
 {
@@ -63,13 +69,15 @@ int rp_app_init(void)
 
     status[0] = 0;
     status[1] = 0;
+    timer[0] = 0;
+    timer[1] = 0;
 
 
-    // Turned off for web dev
-    int exit_code1 = system("cat /opt/redpitaya/fpga/fpga_0.94.bit > /dev/xdevcfg");
-    fprintf(stderr, "Restored system FPGA image? %d\n", exit_code1);
+    // // Turned off for web dev
+    // int exit_code1 = system("cat /opt/redpitaya/fpga/fpga_0.94.bit > /dev/xdevcfg");
+    // fprintf(stderr, "Restored system FPGA image? %d\n", exit_code1);
 
-    sleep(1);
+    // sleep(1);
 
     int exit_code = system("cat /opt/redpitaya/www/apps/multichannelanalyser/mcpha.bit > /dev/xdevcfg");
 
@@ -230,6 +238,9 @@ void UpdateSignals(void){
 
     STATUS[0] = status[0];
     STATUS[1] = status[1];
+
+    TIMER[0] = timer[0];
+    TIMER[1] = timer[1];
 
     //Write data to signal
     for(int i = 0; i < SIGNAL_SIZE_DEFAULT; i++) 
@@ -423,7 +434,7 @@ void OnNewParams(void)
         }
         else if(chan == 1)
         {
-          *(uint64_t *)(cfg + 24) = data*125000000;
+          *(uint64_t *)(cfg + 24) = ((uint64_t)data)*125000000ULL;
         }
       }
       // I think this is the start-mca command
@@ -461,16 +472,12 @@ void OnNewParams(void)
         if(chan == 0)
         {
           data = *(uint64_t *)(sts + 12);
-          fprintf(stderr, "TODO-SEND 0: %llu\n", data);
-          
-          //if(send(sock_client, &data, 8, MSG_NOSIGNAL) < 0) break;
         }
         else if(chan == 1)
         {
           data = *(uint64_t *)(sts + 20);
-          fprintf(stderr, "TODO-SEND 1\n");
-        //   if(send(sock_client, &data, 8, MSG_NOSIGNAL) < 0) break;
         }
+        timer[chan] = data/125000000ULL;
       }
       else if(code == 14)
       {

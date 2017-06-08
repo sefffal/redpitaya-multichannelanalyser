@@ -23,14 +23,12 @@
     APP.latestSignals = {};
 
     // Parameters
-    APP.processing = false;
 
+    // 0 for IN1, 1 for IN2
     APP.channel = 0;
 
-    APP.status = APP.last_sent_status = 0;
-
-
-
+    APP.status = 0;
+    APP.last_sent_status = null;
 
     // Starts template application on server
     APP.startApp = function() {
@@ -139,13 +137,6 @@
             };
 
             APP.ws.onmessage = function(ev) {
-
-                //Capture signals
-                if (APP.processing) {
-                    return;
-                }
-                APP.processing = true;
-
                 try {
                     var data = new Uint8Array(ev.data);
                     var inflate = pako.inflate(data);
@@ -159,26 +150,26 @@
                     if (receive.signals) {
                         APP.latestSignals = receive.signals;
                     }
-                    APP.processing = false;
+                    
                 } catch (e) {
-                    APP.processing = false;
                     console.log(e);
-                } finally {
-                    APP.processing = false;
                 }
-
 
             };
         }
     };
 
 
-
+    APP._interval_timer = null;
     APP.startRunLoop = function() {
 
-        setInterval(function() {
+        if (APP._interval_timer) {
+            clearInterval(APP._interval_timer);
+        }
+        APP._interval_timer = setInterval(function() {
             // Trigger reading of histgoram for next time
             APP.readHistogram(APP.channel);
+            APP.readTimer(APP.channel);
         }, 750);
 
         APP._runLoop();
@@ -191,13 +182,24 @@
         if (APP.latestSignals && APP.latestSignals.HISTOGRAM) {
             APP.updateChartData(APP.latestSignals.HISTOGRAM.value);
         }
+
+        // Update button states
         if (APP.latestSignals && APP.latestSignals.STATUS) {
             APP.status = APP.latestSignals.STATUS.value[APP.channel];
             APP.updateButtonStates();
         }
 
+        // Update info
+        if (APP.latestSignals && APP.latestSignals.TIMER) {
+            APP.updateInfo(
+                APP.latestSignals.TIMER.value[APP.channel],
+                APP.latestSignals.HISTOGRAM.value
+            );
+        }
+
+
         // Run again
-        setTimeout(APP.startRunLoop, 500);
+        setTimeout(APP._runLoop, 500);
     };
 
     APP.sendCommand = function(code, chan, data) {
@@ -254,6 +256,12 @@
         // Send start command
         APP.sendCommand(12, APP.channel, 1);
     }
+    APP.readTimer = function(channel) {
+        if (channel !== 0 && channel !== 1) {
+            throw "Invalid Argument: Must have channel number 0 or 1";
+        }
+        APP.sendCommand(13, channel, 0);        
+    }
     APP.stopMCA = function(channel) {
         if (channel !== 0 && channel !== 1) {
             throw "Invalid Argument: Must have channel number 0 or 1";
@@ -296,10 +304,9 @@
 
         APP.chart = Highcharts.chart('histogram-container', {
             chart: {
-                type: 'column',
-                // backgroundColor:'rgba(255, 255, 255, 0)',
                 backgroundColor: 'transparent',
                 zoomType: 'xy',
+                type: 'column'         
             },
             plotOptions: {
                 column: {
@@ -325,13 +332,11 @@
             },
             yAxis: {
                 min: 0,
-                // max: 1e10,
                 max: 10,
-                // type: 'logarithmic',
                 title: {
                     text: 'Counts'
                 },
-                tickPositions: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                tickInterval: 1,
                 labels: {
                     formatter: function() {
                         return "1E"+this.value;
@@ -344,6 +349,7 @@
                 borderColor: '#63A0DD',
                 shadow: false,
                 headerFormat: '',
+                animation: false,
                 pointFormatter: function() {
                     var counts = 0;
                     if (this.y>0) {
@@ -355,13 +361,14 @@
                 positioner: function(labelWidth, labelHeight, point) {
                     return {x:point.plotX, y:5}
                 },
-                // useHTML: true
             },
-            series: [{
-                name: 'Input 1',
-                data: empty_data,
-                color: '#63A0DD'
-            }]
+            series: [
+                {
+                    name: 'Input '+(APP.channel+1),
+                    data: empty_data,
+                    color: APP.channel ? '#61BC7B' : '#63A0DD'
+                },
+            ]
         });
     };
 
@@ -374,14 +381,8 @@
         $('#start').text("STOP");
 
         var logged_values = [];
-        // for (var i=values.length-1; i>=0; i--) {
-        //     if (values[i]===0) {
-        //         logged_values[i] = 0;
-        //     }
-        //     else {
-        //         logged_values[i] = Math.log10(values[i]);
-        //     }
-        // }
+        // var error_bars = [];
+        
         for (var i=0, l=values.length; i<l; i++) {
             if (values[i]===0) {
             }
@@ -390,16 +391,29 @@
                     i,
                     Math.log10(values[i])
                 ]);
+                var err = Math.sqrt(values[i]);
+                // error_bars.push([
+                //     i,
+                //     Math.log10(values[i]-err),
+                //     Math.log10(values[i]+err)
+                // ])
             }
         }
         APP.chart.series[0].setData(logged_values, true);//, true, true);
+        // APP.chart.series[1].setData(error_bars, true);//, true, true);
     }
 
     APP.updateButtonStates = function() {
-        $('#hours, #minutes, #seconds').prop('disabled', true);
 
-        if (APP.status != APP.last_sent_status) {
+        // // Reset the UI when switching inputs or starting up
+        // if (APP.last_sent_status === null) {
+        //     APP.last_sent_status = status;
+        // }
+
+        // Blank out control button if still changing states
+        if (APP.last_sent_status !== null && APP.status !== APP.last_sent_status) {
             $('#start').text('...');
+                $('#hours, #minutes, #seconds').prop('disabled', true);
             return;
         }
 
@@ -409,19 +423,37 @@
         switch(APP.status) {
             case 0:
                 $('#start').text('START');
-                $('#hours, #minutes, #seconds').prop('disabled', false);                
+                $('#hours, #minutes, #seconds').prop('disabled', false);
                 break
             case 1:
                 $('#start').text('STOP');
+                $('#hours, #minutes, #seconds').prop('disabled', true);
                 break
             case 2:
-                $('#start').text('RESUME');
-                $('#hours, #minutes, #seconds').prop('disabled', false);                
+                $('#start').text('RESTART');
+                $('#hours, #minutes, #seconds').prop('disabled', false);
                 break
             default:
                 $('#start').text('ERROR');
-                $('#hours, #minutes, #seconds').prop('disabled', false);                
+                $('#hours, #minutes, #seconds').prop('disabled', false);
         }
+    };
+
+
+    APP.updateInfo = function(timer, histogram) {
+        $('#livetime').text(timer);
+        
+        var total = 0;
+        for (var i=histogram.length-1; i>=0; i--) {
+            total += histogram[i];
+        }
+
+        $('#total-counts').text(total);
+
+        if (timer > 0) {
+            $('#rate').text((total/timer).toExponential(2).toUpperCase());
+        }
+
     }
 
 }(window.APP = window.APP || {}, jQuery));
@@ -452,7 +484,7 @@ $(function() {
             return;
         }
 
-        if (APP.last_sent_status !== APP.status) {
+        if (APP.last_sent_status !== null && APP.last_sent_status !== APP.status) {
             return false;
         }
 
@@ -481,6 +513,31 @@ $(function() {
     $('#reset').click(function() {
         APP.resetHistogram(APP.channel);
     })
+
+    $('#input').on('change', function() {
+        var val = parseInt($('#input option:selected').val());
+        switch(val) {
+            case 1: // IN1-POS
+                APP.channel = 0;
+                break;
+            case 2: // IN2-POS
+                APP.channel = 1;
+                break;
+            case 3: // IN1-NEG
+                APP.channel = 0;
+                break;
+            case 3: // IN2-NEG
+                APP.channel = 1;
+                break;
+        }
+        // Regerate the chart completely
+        APP.chart.destroy();
+        APP.createChart();
+        APP.chart.reflow();
+
+        // Reset the UI state to unknown
+        APP.last_sent_status = null;
+    });
 
     // Highcharts don't handle css grids very well, so recreate chart on resize
     $(window).resize($.debounce(250, function() {

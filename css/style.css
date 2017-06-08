@@ -54,6 +54,27 @@
   grid-row-end: 6;
 }
 
+@media screen and (max-width: 769px) and (max-height: 630px) {
+  #content .group {
+    font-size: 12px;
+  }
+  #content .group h2 {
+    font-size: 14px;
+  }
+  #content .group.buttons {
+    margin-bottom: 0px;
+  }
+  #content .group label {
+    margin-bottom: 0px;
+  }
+  #content .group input, #content .group select {
+    font-size: 12px;
+  }
+  #content .group#info td {
+    padding: 3px;
+  }
+}
+
 @media screen and (min-width: 555px) and (max-width: 769px) {
   #content {
     grid-template-columns: auto 1fr;
@@ -144,7 +165,7 @@
 
 
 
-#content .group.buttons {
+#content .buttons {
   margin-bottom: 12px;
 }
 #content button {
