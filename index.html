@@ -49,15 +49,15 @@
 		<div class="group timer">
 			<h2>Capture Time</h2>
 			<label>
-				<input type="number" id="hours" value="0">
+				<input type="number" id="hours" value="0" min="0">
 				Hours
 			</label>
 				<label>
-				<input type="number" id="minutes" value="5">
+				<input type="number" id="minutes" value="30" min="0" max="59">
 				Minutes
 			</label>
 				<label>
-				<input type="number" id="seconds" value="0">
+				<input type="number" id="seconds" value="0" min="0" max="59">
 				Seconds
 			</label>
 		</div>
@@ -86,15 +86,28 @@
 		<table id="info" class="group info">
 			<tbody>
 				<tr>
+
+				</tr>
+				<tr>
 					<td>Livetime</td>
 					<td id="livetime">0</td>
 					<td>s</td>
 				</tr>
+					<td style="padding: 0px 6px"></td>
+					<td colspan=2 style="padding: 0px 6px; line-height:0 ">
+						<progress id="livetime-slider" type="range" max=100 value=0 />
+					</td>
 				<tr>
 					<td>Rate</td>
 					<td id="rate">0</td>
 					<td>Hz</td>
 				</tr>
+				</tr>
+					<td style="padding: 0px 6px"></td>
+					<td colspan=2 style="padding: 0px 6px; line-height:0 ">
+						&nbsp;
+					</td>
+				<tr>
 				<tr>
 					<td>Total counts</td>
 					<td id="total-counts">0</td>

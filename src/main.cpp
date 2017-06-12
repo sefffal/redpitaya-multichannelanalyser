@@ -19,7 +19,7 @@
 //Signal size
 #define SIGNAL_SIZE_DEFAULT      16385
 //#define SIGNAL_UPDATE_INTERVAL      10
-#define SIGNAL_UPDATE_INTERVAL      350
+#define SIGNAL_UPDATE_INTERVAL      500
 
 
 
@@ -39,7 +39,8 @@ CIntSignal STATUS("STATUS", CBaseParameter::RW, 2, 0);
 // 2: Running
 
 // Timer for inputs 0 and 1 of MCA
-CIntSignal TIMER("TIMER", CBaseParameter::RW, 2, 0);
+CIntSignal TIMER_STATUS("TIMER_STATUS", CBaseParameter::RW, 2, 0);
+CIntSignal TIMER_CONFIG("TIMER_CONFIG", CBaseParameter::RW, 2, 0);
 
 
 
@@ -58,7 +59,8 @@ void *ram, *buf;
 volatile uint8_t *rst[4];
 volatile uint32_t *trg;
 int status[2];
-int timer[2];
+int timer_status[2];
+int timer_config[2];
 
 int rp_app_init(void)
 {
@@ -69,98 +71,106 @@ int rp_app_init(void)
 
     status[0] = 0;
     status[1] = 0;
-    timer[0] = 0;
-    timer[1] = 0;
+    timer_status[0] = 0;
+    timer_status[1] = 0;
+    timer_config[0] = 0;
+    timer_config[1] = 0;
 
 
-    // // Turned off for web dev
-    // int exit_code1 = system("cat /opt/redpitaya/fpga/fpga_0.94.bit > /dev/xdevcfg");
-    // fprintf(stderr, "Restored system FPGA image? %d\n", exit_code1);
+    // TODO: Find a way to not reset everything in some cases
+    int do_reset = 1;
 
-    // sleep(1);
+    if (do_reset) {
 
-    int exit_code = system("cat /opt/redpitaya/www/apps/multichannelanalyser/mcpha.bit > /dev/xdevcfg");
 
-    fprintf(stderr, "Loaded MCA FPGA image? %d\n", exit_code);
-    
-    if (exit_code != 0)
-    {
-        perror("Could not load custom FPGA image.");
-        return 1;
+
+      int exit_code1 = system("cat /opt/redpitaya/fpga/fpga_0.94.bit > /dev/xdevcfg");
+
+      // Turns out we don't want to initialize the API!
+      // This sets up a bunch of FPGA stuff like oscilooscope,
+      // but we're using a custom FPGA image so avoid this.
+      // Initialization of API
+      if (rpApp_Init() != RP_OK) 
+      {
+          fprintf(stderr, "Red Pitaya API init failed!\n");
+          return EXIT_FAILURE;
+      }
+      else fprintf(stderr, "Red Pitaya API init success!\n");
+
+
+      int exit_code = system("cat /opt/redpitaya/www/apps/multichannelanalyser/mcpha.bit > /dev/xdevcfg");
+
+      fprintf(stderr, "Loaded MCA FPGA image? %d\n", exit_code);
+      
+      if (exit_code != 0)
+      {
+          perror("Could not load custom FPGA image.");
+          return 1;
+      }
+
+
+
+
+      // Open /dev/mem so we can memmap for FPGA stuff
+      if ((fd = open("/dev/mem", O_RDWR)) < 0)
+      {
+          perror("Could not open /dev/mem");
+          return 1;
+      }
+
+      // I beleive that the pagesize is 32 bytes?
+      // These are all pointers / arrays into certain regions of RAM used to communicate with the FPGA
+      slcr       = (uint32_t*) mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0xF8000000);
+      axi_hp0    = (uint32_t*) mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0xF8008000);
+      trg        = (uint32_t*) mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40002000);
+      sts        = (uint8_t*)  mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40000000);
+      cfg        = (uint8_t*)  mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40001000);
+      hst0       = (char*)     mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40010000);
+      hst1     = (char*)     mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40020000);
+      gen        = (uint8_t*)  mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40030000);
+      ram        = (char*)     mmap(NULL, 8192*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x1E000000);
+      buf        = (char*)     mmap(NULL, 8192*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
+
+      /* Fill rst with pointers into cfg */
+      rst[0] = &(cfg[0]);
+      rst[1] = &(cfg[1]);
+      rst[2] = &(cfg[2]);
+      rst[3] = &(cfg[3]);
+
+      /* Set FPGA clock to 143 MHz and HP0 bus width to 64 bits, somehow */
+      /* FPGA clock is set to 143MHz so that it's faster than ADC clock and wont miss data */
+      slcr[2] = 0xDF0D;
+      slcr[92] = (slcr[92] & ~0x03F03F30) | 0x00100700;
+      slcr[144] = 0;
+      axi_hp0[0] &= ~1; // Turning off last bit?
+      axi_hp0[5] &= ~1; // Turning off last bit?
+      
+      /* set sample rate */
+      *(uint16_t *)(cfg + 4) = 125; // 125MHz sample rate from ADC
+      
+      /* set trigger channel */
+      trg[16] = 0;
+      trg[0] = 2;
+      
+      /* reset timers and histograms */
+      *rst[0] &= ~3;
+      *rst[0] |= 3;
+      *rst[1] &= ~3;
+      *rst[1] |= 3;
+      
+      /* reset oscilloscope */
+      *rst[2] &= ~3;
+      *rst[2] |= 3;
+      
+      /* reset generator */
+      *rst[3] &= ~128;
+      *rst[3] |= 128;
     }
-
-
-    // Turns out we don't want to initialize the API!
-    // This sets up a bunch of FPGA stuff like oscilooscope,
-    // but we're using a custom FPGA image so avoid this.
-    // // Initialization of API
-    // if (rpApp_Init() != RP_OK) 
-    // {
-    //     fprintf(stderr, "Red Pitaya API init failed!\n");
-    //     return EXIT_FAILURE;
-    // }
-    // else fprintf(stderr, "Red Pitaya API init success!\n");
-
-
-
-    // Open /dev/mem so we can memmap for FPGA stuff
-    if ((fd = open("/dev/mem", O_RDWR)) < 0)
-    {
-        perror("Could not open /dev/mem");
-        return 1;
-    }
-
-    // I beleive that the pagesize is 32 bytes?
-    // These are all pointers / arrays into certain regions of RAM used to communicate with the FPGA
-    slcr       = (uint32_t*) mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0xF8000000);
-    axi_hp0    = (uint32_t*) mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0xF8008000);
-    trg        = (uint32_t*) mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40002000);
-    sts        = (uint8_t*)  mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40000000);
-    cfg        = (uint8_t*)  mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40001000);
-    hst0       = (char*)     mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40010000);
-    hst1     = (char*)     mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40020000);
-    gen        = (uint8_t*)  mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40030000);
-    ram        = (char*)     mmap(NULL, 8192*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x1E000000);
-    buf        = (char*)     mmap(NULL, 8192*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
-
-    /* Fill rst with pointers into cfg */
-    rst[0] = &(cfg[0]);
-    rst[1] = &(cfg[1]);
-    rst[2] = &(cfg[2]);
-    rst[3] = &(cfg[3]);
-
-    /* Set FPGA clock to 143 MHz and HP0 bus width to 64 bits, somehow */
-    /* FPGA clock is set to 143MHz so that it's faster than ADC clock and wont miss data */
-    slcr[2] = 0xDF0D;
-    slcr[92] = (slcr[92] & ~0x03F03F30) | 0x00100700;
-    slcr[144] = 0;
-    axi_hp0[0] &= ~1; // Turning off last bit?
-    axi_hp0[5] &= ~1; // Turning off last bit?
-    
-    /* set sample rate */
-    *(uint16_t *)(cfg + 4) = 125; // 125MHz sample rate from ADC
-    
-    /* set trigger channel */
-    trg[16] = 0;
-    trg[0] = 2;
-    
-    /* reset timers and histograms */
-    *rst[0] &= ~3;
-    *rst[0] |= 3;
-    *rst[1] &= ~3;
-    *rst[1] |= 3;
-    
-    /* reset oscilloscope */
-    *rst[2] &= ~3;
-    *rst[2] |= 3;
-    
-    /* reset generator */
-    *rst[3] &= ~128;
-    *rst[3] |= 128;
 
 
     //Set signal update interval
     CDataManager::GetInstance()->SetSignalInterval(SIGNAL_UPDATE_INTERVAL);
+    CDataManager::GetInstance()->SetParamInterval(SIGNAL_UPDATE_INTERVAL);
 
     return 0;
 }
@@ -204,6 +214,7 @@ int rp_app_init(void)
 
 int rp_app_exit(void)
 {
+    // This doesn't ever seem to get called
     fprintf(stderr, "Unloading Multi Channel Analyser\n");
 
     rpApp_Release();
@@ -239,8 +250,10 @@ void UpdateSignals(void){
     STATUS[0] = status[0];
     STATUS[1] = status[1];
 
-    TIMER[0] = timer[0];
-    TIMER[1] = timer[1];
+    TIMER_STATUS[0] = timer_status[0];
+    TIMER_STATUS[1] = timer_status[1];
+    TIMER_CONFIG[0] = timer_config[0];
+    TIMER_CONFIG[1] = timer_config[1];
 
     //Write data to signal
     for(int i = 0; i < SIGNAL_SIZE_DEFAULT; i++) 
@@ -263,7 +276,7 @@ void OnNewParams(void)
     int chan = (uint8_t)  COMMAND_CHAN.Value();
     uint32_t data = (uint32_t) COMMAND_DATA.Value();
 
-    if (code!=14) {
+    if (code!=14 && code!=13) {
       fprintf(stderr, "-------------------\n");
       fprintf(stderr, "Command code: %d\n", code);
       fprintf(stderr, "Command chan: %d\n", chan);
@@ -468,16 +481,28 @@ void OnNewParams(void)
       }
       else if(code == 13)
       {
+        uint64_t data1 = 0;
+        uint64_t data2 = 0;
         /* read timer */
         if(chan == 0)
         {
-          data = *(uint64_t *)(sts + 12);
+          data1 = *(uint64_t *)(sts + 12)/125000000ULL;
+          data2 = *(uint64_t *)(cfg + 8)/125000000ULL;
         }
         else if(chan == 1)
         {
-          data = *(uint64_t *)(sts + 20);
+          data1 = *(uint64_t *)(sts + 20)/125000000ULL;
+          data2 = *(uint64_t *)(cfg + 24)/125000000ULL;
         }
-        timer[chan] = data/125000000ULL;
+        timer_status[chan] = (int) data1;
+        timer_config[chan] = (int) data2;
+
+        // fprintf(stderr, "STATUS (%d) / (%d)\n",  (int) data1, (int) data2);
+
+        // Reset status if timer has completed
+        if (timer_status[chan] >= timer_config[chan] && status[chan] != 0) {
+          status[chan] = 2;
+        }
       }
       else if(code == 14)
       {

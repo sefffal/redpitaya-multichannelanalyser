@@ -62,12 +62,14 @@
 
 
     // Stop template application on server
-    APP.stopApp = function() {
+    APP.stopApp = function(e) {
+
+        APP.ws.close();
 
         $.ajax({
 			type:"get",
 			async: false,
-			url: APP.stop_url,
+			url: APP.config.stop_url,
 			success: function(dresult) {
                 if (dresult.status == 'OK') {
 					return true;
@@ -77,14 +79,18 @@
                     $('#loader').removeClass("hidden");
                     $('#loader').removeClass("hide");
                     $('#hello_message').text(dresult.reason ? dresult.reason : 'Could not stop the application (ERR4)');
-                    $('#hello_message').addClass("error");  
+                    $('#hello_message').addClass("error");
+                    e.preventDefault();
+                    APP.stopApp = null;
                 } else {
-                    console.log('Could not stop the application (ERR5)');
+                    console.log('Could not stop the application (ERR5) -- ');
                     $('#loader').addClass("error");   
                     $('#loader').removeClass("hidden");
                     $('#loader').removeClass("hide");
                     $('#hello_message').text('Could not stop the application (ERR5)');
                     $('#hello_message').addClass("error");  
+                    e.preventDefault();
+                    APP.stopApp = null;
                 }
             },
 			error: function() {
@@ -94,6 +100,8 @@
                 $('#hello_message').text('Could not stop the application (ERR6)');
                 $('#hello_message').addClass("error");  
                 console.log('Could not stop the application (ERR6)');
+                e.preventDefault();
+                APP.stopApp = null;
             }
 		});
     };
@@ -148,6 +156,13 @@
                     }
 
                     if (receive.signals) {
+                        if (APP.latestSignals && APP.latestSignals.STATUS && receive.signals.STATUS &&
+                            APP.latestSignals.STATUS.value[APP.channel] === APP.last_sent_status &&
+                            receive.signals.STATUS.value[APP.channel] !== APP.last_sent_status)
+                        {
+                            APP.last_sent_status = receive.signals.STATUS.value[APP.channel];
+                        }
+
                         APP.latestSignals = receive.signals;
                     }
                     
@@ -190,9 +205,10 @@
         }
 
         // Update info
-        if (APP.latestSignals && APP.latestSignals.TIMER) {
+        if (APP.latestSignals && APP.latestSignals.TIMER_CONFIG && APP.latestSignals.TIMER_STATUS) {
             APP.updateInfo(
-                APP.latestSignals.TIMER.value[APP.channel],
+                APP.latestSignals.TIMER_STATUS.value[APP.channel],
+                APP.latestSignals.TIMER_CONFIG.value[APP.channel],
                 APP.latestSignals.HISTOGRAM.value
             );
         }
@@ -307,6 +323,9 @@
                 backgroundColor: 'transparent',
                 zoomType: 'xy',
                 type: 'column'         
+            },
+            credits: {
+                text: 'Will Thompson — Highcharts.com'
             },
             plotOptions: {
                 column: {
@@ -440,20 +459,58 @@
     };
 
 
-    APP.updateInfo = function(timer, histogram) {
-        $('#livetime').text(timer);
+    APP.updateInfo = function(timer_status, timer_config, histogram) {
+        $('#livetime').text(timer_status);
         
         var total = 0;
         for (var i=histogram.length-1; i>=0; i--) {
             total += histogram[i];
         }
 
-        $('#total-counts').text(total);
+        $('#total-counts').text(numberWithCommas(total));
 
-        if (timer > 0) {
-            $('#rate').text((total/timer).toExponential(2).toUpperCase());
+        if (APP.status != APP.last_sent_status) {
+            $('#livetime-slider').val(false);
+        }
+        else if (timer_config > 0) {
+            $('#livetime-slider').val(timer_status/timer_config*100);
+        }
+        else {
+            $('#livetime-slider').val(0);            
         }
 
+        if (timer_status > 0) {
+            $('#rate').text((total/timer_status).toExponential(2).toUpperCase());
+        }
+
+    }
+
+    APP.exportCSV = function(filename) {
+
+        var csv_content = "data:text/csv;charset=utf8,"+
+                          "Channel, Counts\n";
+        var csv_list = [];
+        for (var i=0, l=APP.latestSignals.HISTOGRAM.value.length; i<l; i++) {
+            csv_list.push(
+                i+", "+APP.latestSignals.HISTOGRAM.value[i]
+            );
+        }
+        csv_content += csv_list.join("\n");
+
+        var encodedUri = encodeURI(csv_content);
+        var link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", filename+".csv");
+        document.body.appendChild(link); // Required for FF
+
+        link.click(); // This will download the data file named "my_data.csv".
+        document.body.removeChild(link);
+    };
+
+    // Output a number with tousands separators.
+    // From https://stackoverflow.com/questions/2901102/how-to-print-a-number-with-commas-as-thousands-separators-in-javascriptb
+    function numberWithCommas(x) {
+        return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
 }(window.APP = window.APP || {}, jQuery));
@@ -465,9 +522,9 @@ $(function() {
     APP.startApp();
 
     // Stop application the way out
-	// $(window).bind('beforeunload', function(){
-	// 	APP.stopApp();
-	// });
+	$(window).bind('beforeunload', function(e){
+		APP.stopApp(e);
+	});
 
 
     $('#start').click(function() {
@@ -512,6 +569,10 @@ $(function() {
 
     $('#reset').click(function() {
         APP.resetHistogram(APP.channel);
+    })
+
+    $('#export').click(function() {
+        APP.exportCSV("test");
     })
 
     $('#input').on('change', function() {

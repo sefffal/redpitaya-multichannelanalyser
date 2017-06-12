@@ -22,7 +22,7 @@
     right: 0;
     bottom: 0;
     background: #63A0DD;
-    color: #EEE;
+    color: white;
     display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto auto 1fr;
@@ -189,6 +189,7 @@
   /* height: 139px; */
   /*   border-left: 2px solid #508CC8; */
   padding: 6px;
+  color: #444;
 }
 #info td {
   padding: 6px;
@@ -243,7 +244,7 @@ input[type="number"]:hover, select:hover {
 }
 input[type="number"]:disabled, input[type="number"]:disabled:hover, select:disabled, select:disabled:hover {
   outline: none;
-  color: #555;
+  color: #444;
   padding: 1px 4px;
   border-bottom: solid 2px transparent;
   background: transparent;
@@ -292,6 +293,24 @@ select:-moz-focusring {
   color: transparent;
   text-shadow: 0 0 0 #000;
 }
+
+progress[value] {
+  /* Reset the default appearance */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  -ms-appearance: none;
+  appearance: none;
+  border: none;
+  height: 4px;
+  width: 100%;
+}
+progress[value]::-webkit-progress-bar  { background-color: #eee; }
+progress[value]::-moz-progress-bar     { background-color: #eee; }
+progress[value]::progress-bar          { background-color: #eee; }
+
+progress[value]::-webkit-progress-value { background-color: #27435f; color: #27435f; }
+progress[value]::-moz-progress-value    { background-color: #27435f; color: #27435f; }
+progress[value]::progress-value         { background-color: #27435f; color: #27435f; }
 
 
 #loader {
