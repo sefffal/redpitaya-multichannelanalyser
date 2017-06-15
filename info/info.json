@@ -1,5 +1,5 @@
 {
-    "name": "Multi Channel Analyser",
+    "name": "Multichannel Analyser",
     "version": "0.94-BUILD_NUMBER",
     "revision": "REVISION",
     "description": "A web-based multi channel pulse height analyser, based on the backend by Pavel Demin"
