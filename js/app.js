@@ -244,13 +244,11 @@
         APP.sendCommand(7, APP.channel, 0); // No baseline
         
         // Send PHA delay update command 8 channel 100?
-        APP.sendCommand(8, APP.channel, 100);
+        APP.setPHADelay(APP.channel, 100);
 
         // Send thrs_update  command 9min, channel, min; command 10max channel max
         APP.sendCommand(9, APP.channel, 0);
         APP.sendCommand(10, APP.channel, 16380);
-
-        // alert("Time: "+timeleft_s*125000+" "+timeleft_s);
 
         // counter setup
         APP.sendCommand(11, APP.channel, timeleft_s); // Set timer
@@ -271,37 +269,58 @@
 
         // Send start command
         APP.sendCommand(12, APP.channel, 1);
-    }
+    };
     APP.readTimer = function(channel) {
         if (channel !== 0 && channel !== 1) {
             throw "Invalid Argument: Must have channel number 0 or 1";
         }
         APP.sendCommand(13, channel, 0);        
-    }
+    };
     APP.stopMCA = function(channel) {
         if (channel !== 0 && channel !== 1) {
             throw "Invalid Argument: Must have channel number 0 or 1";
         }
         APP.sendCommand(12, channel, 0);
-    }
+    };
     APP.setDecimation = function(channel, decimation) {
         if (decimation<4) {
             throw "Decimation should porbably be at least 4";
         }
         APP.sendCommand(4, channel, decimation);
-    }
+    };
+    // Sets if PHA should look for negative or positve pulses.
+    // 1 means negative, 0 means positive.
+    APP.setNegator = function(channel, negated) {
+        if (channel !== 0 && channel !== 1) {
+            throw "Invalid Argument: Must have channel number 0 or 1";
+        }
+        if (negated !== 0 && negated !== 1) {
+            throw "Invalid Argument: Negated must be 0 or 1";
+        }
+        APP.sendCommand(5, channel, negated);
+    };
     APP.readHistogram = function(channel) {
         if (channel !== 0 && channel !== 1) {
             throw "Invalid Argument: Must have channel number 0 or 1";
         }
         APP.sendCommand(14, channel, 0); // Read histogram
-    }
+    };
 
     APP.resetHistogram = function(channel) {
         if (channel !== 0 && channel !== 1) {
             throw "Invalid Argument: Must have channel number 0 or 1";
         }
         APP.sendCommand(1, channel, 0); // Reset histogram
+    };
+
+    APP.setPHADelay = function(channel, delay) {
+        if (channel !== 0 && channel !== 1) {
+            throw "Invalid Argument: Must have channel number 0 or 1";
+        }
+        if (delay < 0 || !(delay >= 0)) {
+            throw "Invalid Argument: Delay must be a positive integer";
+        }
+        APP.sendCommand(8, channel, delay);
     }
 
     APP.createChart = function() {
@@ -580,15 +599,19 @@ $(function() {
         switch(val) {
             case 1: // IN1-POS
                 APP.channel = 0;
+                APP.setNegator(APP.channel, 0);
                 break;
             case 2: // IN2-POS
                 APP.channel = 1;
+                APP.setNegator(APP.channel, 0);
                 break;
             case 3: // IN1-NEG
                 APP.channel = 0;
+                APP.setNegator(APP.channel, 1);
                 break;
             case 3: // IN2-NEG
                 APP.channel = 1;
+                APP.setNegator(APP.channel, 1);
                 break;
         }
         // Regerate the chart completely
