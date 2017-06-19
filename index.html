@@ -72,7 +72,7 @@
           <option value="3">IN1-NEG</option>
           <option value="4">IN2-NEG</option>
         </select>
-        Input-Polarity
+        Input &amp; Polarity
       </label>
     </div>
 
@@ -100,12 +100,25 @@
     </div>
     
 
+    <!-- Decimation Select-->
+    <div class="group bincount">
+      <h2>Bin Count</h2>
+      <!--TODO: Update this value when switching between channels-->
+      <label id="bincount">
+        <select>
+          <option value="1024">1024</option>
+          <option value="16384" selected>16384</option>
+        </select>
+        <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+      </label>
+    </div>
+
     <!-- Dead-Time Select-->
     <div class="group delay">
       <h2>Wait Time</h2>
       <label id="delay">
         <input type="range" min="0" max="16384" value="100"/>
-        <span id="delay-readout">12.8 &mu;</span>        
+        <span id="delay-readout">12.8 &mu;s</span>        
       </label>
     </div>
 
@@ -120,36 +133,40 @@
 
     <table id="info" class="group info">
       <tbody>
-        <tr></tr>
         <tr>
           <td>Real Time</td>
           <td id="livetime">0</td>
           <td>s</td>
         </tr>
-          <td style="padding: 0px 6px"></td>
-          <td colspan=2 style="padding: 0px 6px; line-height:0 ">
-            <progress id="livetime-slider" type="range" max=100 value=0 />
-          </td>
         <tr>
           <td>Rate</td>
           <td id="rate">0</td>
-          <td>Hz</td>
+          <td>/s</td>
         </tr>
-        </tr>
+        <tr>
           <td style="padding: 0px 6px"></td>
           <td colspan=2 style="padding: 0px 6px; line-height:0 ">
             &nbsp;
           </td>
-        <tr>
-        <tr>
+        </tr>
+        <tr id="total-counts">
           <td>Total counts</td>
-          <td id="total-counts">0</td>
+          <td class="value">0</td>
+          <td></td>
+        </tr>
+        <tr id="region-of-interest">
+          <td>Region of Interest</td>
+          <td class="value">0</td>
           <td></td>
         </tr>
       </tbody>
     </table>
-
     <div class="group" id="histogram-container"></div>
+    <progress id="livetime-slider" max=100 value=0 ></progress>
+    <label  id="logarithmic">
+      Logarithmic Scale
+      <input type="checkbox" checked/>
+    </label>
   </div>
   <div id="warning"></div>  
   <div id="loader">

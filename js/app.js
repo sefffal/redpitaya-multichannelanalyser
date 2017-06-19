@@ -7,7 +7,7 @@
 
 
 (function(APP, $, undefined) {
-    
+
     // App configuration
     APP.config = {};
     APP.config.app_id = 'multichannelanalyser';
@@ -34,7 +34,7 @@
     // Channel settings
     APP.logarithmic = true;
     APP.decimation = [16,16];
-    APP.bincount = [16384,16384];
+    APP.bincount = 16384;
     APP.delay = [100,100];
 
     // Saved results
@@ -53,19 +53,19 @@
                 } else if (dresult.status == 'ERROR') {
                     console.log(dresult.reason ? dresult.reason : 'Could not start the application (ERR1)');
                     $('#hello_message_text').text(dresult.reason ? dresult.reason : 'Could not start the application (ERR1). Retrying in 1s...');
-                    $('#loader').addClass("error");  
+                    $('#loader').addClass("error");
                     APP.startApp();
                 } else {
                     console.log('Could not start the application (ERR2)');
                     $('#hello_message_text').text('Could not start the application (ERR2). Retrying in 1s...');
-                    $('#loader').addClass("error");  
+                    $('#loader').addClass("error");
                     setTimeout(APP.startApp, 1000);
                 }
             })
             .fail(function() {
                 console.log('Could not start the application (ERR3)');
                 $('#hello_message.text').text('Could not start the application (ERR3). Retrying in 1s...');
-                $('#hello_message').addClass("error");  
+                $('#hello_message').addClass("error");
                 setTimeout(APP.startApp, 1000);
             });
     };
@@ -85,7 +85,7 @@
 					return true;
                 } else if (dresult.status == 'ERROR') {
                     console.log(dresult.reason ? dresult.reason : 'Could not stop the application (ERR4)');
-                    $('#loader').addClass("error");   
+                    $('#loader').addClass("error");
                     $('#loader').removeClass("hidden");
                     $('#loader').removeClass("hide");
                     $('#hello_message').text(dresult.reason ? dresult.reason : 'Could not stop the application (ERR4)');
@@ -94,21 +94,21 @@
                     APP.stopApp = null;
                 } else {
                     console.log('Could not stop the application (ERR5) -- ');
-                    $('#loader').addClass("error");   
+                    $('#loader').addClass("error");
                     $('#loader').removeClass("hidden");
                     $('#loader').removeClass("hide");
                     $('#hello_message').text('Could not stop the application (ERR5)');
-                    $('#hello_message').addClass("error");  
+                    $('#hello_message').addClass("error");
                     e.preventDefault();
                     APP.stopApp = null;
                 }
             },
 			error: function() {
-                $('#loader').addClass("error");   
+                $('#loader').addClass("error");
                 $('#loader').removeClass("hidden");
                 $('#loader').removeClass("hide");
                 $('#hello_message').text('Could not stop the application (ERR6)');
-                $('#hello_message').addClass("error");  
+                $('#hello_message').addClass("error");
                 console.log('Could not stop the application (ERR6)');
                 e.preventDefault();
                 APP.stopApp = null;
@@ -128,7 +128,7 @@
             APP.ws.binaryType = "arraybuffer";
         } else {
             console.log('Browser does not support WebSocket');
-        } 
+        }
 
 
         // Define WebSocket event listeners
@@ -138,7 +138,7 @@
                 $('#hello_message').text("Ready");
                 $('#loader').addClass("hide");
                 setTimeout(function(){
-                    $('#loader').addClass("hidden"); 
+                    $('#loader').addClass("hidden");
                 }, 250);
                 console.log('Socket opened');
                 APP.startRunLoop();
@@ -150,7 +150,7 @@
 
             APP.ws.onerror = function(ev) {
                 $('#hello_message').text("Connection error");
-                $('#hello_message').addClass("error");    
+                $('#hello_message').addClass("error");
                 console.log('Websocket error: ', ev);
             };
 
@@ -162,7 +162,7 @@
                     var receive = JSON.parse(text);
 
                     if (receive.parameters) {
-                        
+
                     }
 
                     if (receive.signals) {
@@ -175,7 +175,7 @@
 
                         APP.latestSignals = receive.signals;
                     }
-                    
+
                 } catch (e) {
                     console.log(e);
                 }
@@ -227,11 +227,20 @@
         }
 
         // Update info
-        if (APP.latestSignals && APP.latestSignals.TIMER_CONFIG && APP.latestSignals.TIMER_STATUS) {
+        if (APP.channel >= 0) {
+            if (APP.latestSignals && APP.latestSignals.TIMER_CONFIG && APP.latestSignals.TIMER_STATUS) {
+                APP.updateInfo(
+                    APP.latestSignals.TIMER_STATUS.value[APP.channel],
+                    APP.latestSignals.TIMER_CONFIG.value[APP.channel],
+                    APP.latestSignals.HISTOGRAM.value
+                );
+            }
+        } else {
+            var val = parseInt($('#input select').val());
             APP.updateInfo(
-                APP.latestSignals.TIMER_STATUS.value[APP.channel],
-                APP.latestSignals.TIMER_CONFIG.value[APP.channel],
-                APP.latestSignals.HISTOGRAM.value
+                0,
+                0,
+                APP.savedHistograms[val-4].content
             );
         }
 
@@ -256,15 +265,15 @@
 
         // Set decimation to 16
         APP.setDecimation(channel, APP.decimation[channel]);
-        
+
         // Send timer = (milliseconds*125000)
 
         // Send base update command 6, channel, type?
         APP.sendCommand(6, APP.channel, 0); // No baseline
-        
+
         // Send base val command 7, channel, baseline
         APP.sendCommand(7, APP.channel, 0); // No baseline
-        
+
         // Send PHA delay update command 8 channel 100?
         APP.setPHADelay(APP.channel, APP.delay[APP.channel]);
 
@@ -278,10 +287,10 @@
 
             // Send base update command 6, channel, type?
             APP.sendCommand(6, APP.channel, 0); // No baseline
-            
+
             // Send base val command 7, channel, baseline
             APP.sendCommand(7, APP.channel, 0); // No baseline
-            
+
             // Send PHA delay update command 8 channel 100?
             APP.sendCommand(8, APP.channel, 100);
 
@@ -296,7 +305,7 @@
         if (channel !== 0 && channel !== 1) {
             throw "Invalid Argument: Must have channel number 0 or 1";
         }
-        APP.sendCommand(13, channel, 0);        
+        APP.sendCommand(13, channel, 0);
     };
     APP.stopMCA = function(channel) {
         if (channel !== 0 && channel !== 1) {
@@ -365,7 +374,7 @@
             chart: {
                 backgroundColor: 'transparent',
                 zoomType: 'xy',
-                type: 'column'  
+                type: 'column'
             },
             credits: {
                 text: 'Will Thompson'
@@ -390,7 +399,7 @@
                 crosshair: true,
                 text: 'Channel Number',
                 min: 0,
-                max: 16385
+                max: APP.bincount
             },
             yAxis: {
                 min: 0,
@@ -401,7 +410,7 @@
                 },
                 tickInterval: log ? 1 : undefined,
                 labels: {
-                    formatter: log ? 
+                    formatter: log ?
                         function() {
                             return "1E"+this.value;
                         } :
@@ -427,7 +436,7 @@
                             counts = this.y;
                         }
                     }
-                    return "Channel "+this.x+": "+counts+" counts"; 
+                    return "Channel "+this.x+": "+counts+" counts";
                 },
                 positioner: function(labelWidth, labelHeight, point) {
                     return {x:point.plotX, y:5}
@@ -447,33 +456,39 @@
         if (!APP.chart) {
             return;
         }
-
-        if (APP.logarithmic) {
-
-            var logged_values = [];
-            // var error_bars = [];
-            
+        var new_values = [];
+        // 16384 bins
+        if (APP.bincount === 16384) {
             for (var i=0, l=values.length; i<l; i++) {
                 if (values[i]===0) {
                 }
                 else {
-                    logged_values.push([
-                        i+1, // Since a zero height pulse makes no sense, increase
-                            // horizontal values by one.
-                        Math.log10(values[i])
+                    new_values.push([
+                        // Since a zero height pulse makes no sense, increase
+                        // horizontal values by one.
+                        i+1,
+                        APP.logarithmic ? Math.log10(values[i]) : values[i]
                     ]);
-                    var err = Math.sqrt(values[i]);
-                    // error_bars.push([
-                    //     i,
-                    //     Math.log10(values[i]-err),
-                    //     Math.log10(values[i]+err)
-                    // ])
                 }
             }
-            values = logged_values;
         }
-        
-        APP.chart.series[0].setData(values, true);//, true, true);
+        // 1024 bins, must re-bin
+        else {
+            var bin_total = 0;
+            for (var i=0, l=values.length; i<l; i++) {
+                if (i%16===0) {
+                    if (bin_total > 0) {
+                        new_values.push([
+                            Math.round(i/16),
+                            APP.logarithmic ? Math.log10(bin_total) : bin_total
+                        ]);
+                        bin_total = 0;
+                    }
+                }
+                bin_total += values[i];
+            }
+        }
+        APP.chart.series[0].setData(new_values, true);//, true, true);
         // APP.chart.series[1].setData(error_bars, true);//, true, true);
     }
 
@@ -526,13 +541,30 @@
 
     APP.updateInfo = function(timer_status, timer_config, histogram) {
         $('#livetime').text(timer_status);
-        
+
         var total = 0;
         for (var i=histogram.length-1; i>=0; i--) {
             total += histogram[i];
         }
 
-        $('#total-counts').text(numberWithCommas(total));
+
+        var region_of_interest = 0;
+        if (APP.chart) {
+            var zoom_data = APP.chart.xAxis[0].getExtremes();
+            var start = Math.floor(zoom_data.min);
+            var stop  = Math.ceil(zoom_data.max);
+            if (APP.bincount === 1024) {
+                start *= 16;
+                stop *= 16;
+            }
+            for (var i=start; i<stop; i++) {
+                region_of_interest += histogram[i];
+            }
+        }
+
+        $('#total-counts .value').text(numberWithCommas(total));
+
+        $('#region-of-interest .value').text(numberWithCommas(region_of_interest));
 
         if (APP.status != APP.last_sent_status) {
             $('#livetime-slider').val(false);
@@ -541,7 +573,7 @@
             $('#livetime-slider').val(timer_status/timer_config*100);
         }
         else {
-            $('#livetime-slider').val(0);            
+            $('#livetime-slider').val(0);
         }
 
         if (timer_status > 0) {
@@ -583,7 +615,7 @@
     };
 
     APP.checkDecimationADCandBinCount = function() {
-        if (APP.decimation[APP.channel] < 16 && APP.bincount[APP.channel] > 1024) {
+        if (APP.decimation[APP.channel] < 16 && APP.bincount > 1024) {
             APP.showWarning(
                 "Warning: Decrease the bin-count or increase the smoothing "+
                 "duration if using a STEMLAB-10."
@@ -613,7 +645,7 @@
             APP.restoreData(name, results);
             // Load new data now
             $('#input select').val(4+filenum);
-            $('#input select').trigger('change');            
+            $('#input select').trigger('change');
         }
         reader.readAsText(file);
     }
@@ -732,7 +764,12 @@ $(function() {
                 APP.updateChartData(
                     APP.savedHistograms[val-4].content
                 );
-                
+                APP.updateInfo(
+                    0,
+                    0,
+                    APP.savedHistograms[val-4].content
+                );
+
         }
 
         APP.chart.reflow();
@@ -760,7 +797,7 @@ $(function() {
         $('#delay #delay-readout').text(
             (APP.delay[APP.channel] * APP.decimation[APP.channel] * 8/1000).toFixed(1) + ' μs'
         );
-        APP.checkDecimationADCandBinCount();        
+        APP.checkDecimationADCandBinCount();
     });
 
     $('#delay input').on('change', function() {
@@ -770,7 +807,14 @@ $(function() {
         $('#delay #delay-readout').text(
             (APP.delay[APP.channel] * APP.decimation[APP.channel] * 8/1000).toFixed(1) + ' μs'
         );
-        APP.checkDecimationADCandBinCount();        
+        APP.checkDecimationADCandBinCount();
+    });
+
+    $('#bincount select').on('change', function() {
+        var val = parseInt($('#bincount option:selected').val());
+        APP.bincount = val;
+        APP.checkDecimationADCandBinCount();
+        $('#input select').trigger('change');
     });
 
     $('#importFileInput').on('change', function(event){
@@ -779,7 +823,12 @@ $(function() {
                 APP.importFile(this.files[i]);
             }
         }
-    })
+    });
+
+    $('#logarithmic input').on('change', function() {
+        APP.logarithmic = $(this).is(":checked");
+        $('#input').trigger('change');
+    });
 
     // Highcharts don't handle css grids very well, so recreate chart on resize
     $(window).resize($.debounce(250, function() {
