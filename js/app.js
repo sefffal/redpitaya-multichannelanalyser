@@ -789,8 +789,8 @@ $(function() {
         }
         var zoom_extremesx = APP.chart.xAxis[0].getExtremes();
         var zoom_extremesy = APP.chart.yAxis[0].getExtremes();
+        var title = APP.chart.options.title.text;
         APP.chart.destroy();
-        var title = title.options.title.text;
         APP.createChart(title);
         APP.chart.reflow();
         setTimeout(function() {
