@@ -27,6 +27,7 @@ $(CONTROLLERHF):
 $(ZIP): $(CONTROLLERHF) index.html fpga.conf js/app.js css/style.css src/main.cpp assets/*
 	-$(RM) target -rf
 	mkdir -p target/$(APP)
+	# Prefix CSS automatically
 	cp -r $(CONTROLLERHF) fpga.conf info js css index.html mcpha.bit assets target/$(APP)
 	sed -i target/$(APP)/info/info.json -e 's/REVISION/$(REVISION)/'
 	sed -i target/$(APP)/info/info.json -e 's/BUILD_NUMBER/$(BUILD_NUMBER)/'

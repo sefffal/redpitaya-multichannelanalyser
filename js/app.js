@@ -27,14 +27,24 @@
     // 0 for IN1, 1 for IN2
     APP.channel = 0;
 
+    // Status tracking
     APP.status = 0;
     APP.last_sent_status = null;
+
+    // Channel settings
+    APP.logarithmic = true;
+    APP.decimation = [16,16];
+    APP.bincount = [16384,16384];
+    APP.delay = [100,100];
+
+    // Saved results
+    APP.savedHistograms = [];
 
     // Starts template application on server
     APP.startApp = function() {
         $('#hello_message.text').text('Connecting...');
 
-        APP.createChart();
+        APP.createChart("Input 1 - Postive Pulses");
 
         $.get(APP.config.app_url)
             .done(function(dresult) {
@@ -182,6 +192,10 @@
             clearInterval(APP._interval_timer);
         }
         APP._interval_timer = setInterval(function() {
+            if (APP.channel < 0) {
+                // Looking at imported data
+                return;
+            }
             // Trigger reading of histgoram for next time
             APP.readHistogram(APP.channel);
             APP.readTimer(APP.channel);
@@ -194,13 +208,21 @@
     APP._runLoop = function() {
 
         // Update chart with latest values
-        if (APP.latestSignals && APP.latestSignals.HISTOGRAM) {
+        if (APP.latestSignals && APP.latestSignals.HISTOGRAM && APP.channel > 0) {
             APP.updateChartData(APP.latestSignals.HISTOGRAM.value);
+            // // Upon receiving an update, we know the app is running so set start button text
+            // $('#start').text("STOP");
         }
 
         // Update button states
-        if (APP.latestSignals && APP.latestSignals.STATUS) {
-            APP.status = APP.latestSignals.STATUS.value[APP.channel];
+        if (APP.channel >= 0) {
+            if (APP.latestSignals && APP.latestSignals.STATUS) {
+                APP.status = APP.latestSignals.STATUS.value[APP.channel];
+                APP.updateButtonStates();
+            }
+        }
+        else {
+            APP.status = 3;
             APP.updateButtonStates();
         }
 
@@ -233,7 +255,7 @@
     APP.resumeMCA = function(channel, timeleft_s) {
 
         // Set decimation to 16
-        APP.setDecimation(channel, 16);
+        APP.setDecimation(channel, APP.decimation[channel]);
         
         // Send timer = (milliseconds*125000)
 
@@ -244,11 +266,11 @@
         APP.sendCommand(7, APP.channel, 0); // No baseline
         
         // Send PHA delay update command 8 channel 100?
-        APP.setPHADelay(APP.channel, 100);
+        APP.setPHADelay(APP.channel, APP.delay[APP.channel]);
 
         // Send thrs_update  command 9min, channel, min; command 10max channel max
         APP.sendCommand(9, APP.channel, 0);
-        APP.sendCommand(10, APP.channel, 16380);
+        APP.sendCommand(10, APP.channel, 16384);
 
         // counter setup
         APP.sendCommand(11, APP.channel, timeleft_s); // Set timer
@@ -265,7 +287,7 @@
 
             // Send thrs_update  command 9min, channel, min; command 10max channel max
             APP.sendCommand(9, APP.channel, 0);
-            APP.sendCommand(10, APP.channel, 16380);
+            APP.sendCommand(10, APP.channel, 16384);
 
         // Send start command
         APP.sendCommand(12, APP.channel, 1);
@@ -323,8 +345,8 @@
         APP.sendCommand(8, channel, delay);
     }
 
-    APP.createChart = function() {
-        var empty_data = []
+    APP.createChart = function(title) {
+        var empty_data = [[0,0]]
         // for (var i=0; i<16385; i++) {
         //     empty_data[i] = 0;
         // }
@@ -337,14 +359,16 @@
         //     }
         // }
 
+        var log = APP.logarithmic;
+
         APP.chart = Highcharts.chart('histogram-container', {
             chart: {
                 backgroundColor: 'transparent',
                 zoomType: 'xy',
-                type: 'column'         
+                type: 'column'  
             },
             credits: {
-                text: 'Will Thompson — Highcharts.com'
+                text: 'Will Thompson'
             },
             plotOptions: {
                 column: {
@@ -370,15 +394,20 @@
             },
             yAxis: {
                 min: 0,
-                max: 10,
+                softMax: log ? 3 :50,
+                // maxPadding: 0.2,
                 title: {
                     text: 'Counts'
                 },
-                tickInterval: 1,
+                tickInterval: log ? 1 : undefined,
                 labels: {
-                    formatter: function() {
-                        return "1E"+this.value;
-                    }
+                    formatter: log ? 
+                        function() {
+                            return "1E"+this.value;
+                        } :
+                        function() {
+                            return this.value;
+                        }
                 },
                 plotLines: logLines
             },
@@ -391,9 +420,13 @@
                 pointFormatter: function() {
                     var counts = 0;
                     if (this.y>0) {
-                        counts = Math.pow(10, this.y);
+                        if (log) {
+                            counts = Math.round(Math.pow(10, this.y));
+                        }
+                        else {
+                            counts = this.y;
+                        }
                     }
-                    counts = Math.round(counts);
                     return "Channel "+this.x+": "+counts+" counts"; 
                 },
                 positioner: function(labelWidth, labelHeight, point) {
@@ -402,9 +435,9 @@
             },
             series: [
                 {
-                    name: 'Input '+(APP.channel+1),
+                    name: title,
                     data: empty_data,
-                    color: APP.channel ? '#61BC7B' : '#63A0DD'
+                    color: APP.channel === 1 ? '#61BC7B' : '#63A0DD'
                 },
             ]
         });
@@ -415,29 +448,32 @@
             return;
         }
 
-        // Upon receiving an update, we know the app is running so set start button text
-        $('#start').text("STOP");
+        if (APP.logarithmic) {
 
-        var logged_values = [];
-        // var error_bars = [];
-        
-        for (var i=0, l=values.length; i<l; i++) {
-            if (values[i]===0) {
+            var logged_values = [];
+            // var error_bars = [];
+            
+            for (var i=0, l=values.length; i<l; i++) {
+                if (values[i]===0) {
+                }
+                else {
+                    logged_values.push([
+                        i+1, // Since a zero height pulse makes no sense, increase
+                            // horizontal values by one.
+                        Math.log10(values[i])
+                    ]);
+                    var err = Math.sqrt(values[i]);
+                    // error_bars.push([
+                    //     i,
+                    //     Math.log10(values[i]-err),
+                    //     Math.log10(values[i]+err)
+                    // ])
+                }
             }
-            else {
-                logged_values.push([
-                    i,
-                    Math.log10(values[i])
-                ]);
-                var err = Math.sqrt(values[i]);
-                // error_bars.push([
-                //     i,
-                //     Math.log10(values[i]-err),
-                //     Math.log10(values[i]+err)
-                // ])
-            }
+            values = logged_values;
         }
-        APP.chart.series[0].setData(logged_values, true);//, true, true);
+        
+        APP.chart.series[0].setData(values, true);//, true, true);
         // APP.chart.series[1].setData(error_bars, true);//, true, true);
     }
 
@@ -462,18 +498,28 @@
             case 0:
                 $('#start').text('START');
                 $('#hours, #minutes, #seconds').prop('disabled', false);
+                $('#start, #reset, #delay input, #decimation select, #export').prop('disabled', false);
                 break
             case 1:
                 $('#start').text('STOP');
                 $('#hours, #minutes, #seconds').prop('disabled', true);
+                $('#start, #reset, #delay input, #decimation select, #export').prop('disabled', false);
                 break
             case 2:
                 $('#start').text('RESTART');
                 $('#hours, #minutes, #seconds').prop('disabled', false);
+                $('#start, #reset, #delay input, #decimation select, #export').prop('disabled', false);
                 break
+            case 3:
+                // Looking at imported file
+                $('#start').text('START');
+                $('#hours, #minutes, #seconds').prop('disabled', true);
+                $('#start, #reset, #delay input, #decimation select, #export').prop('disabled', true);
+                break;
             default:
                 $('#start').text('ERROR');
                 $('#hours, #minutes, #seconds').prop('disabled', false);
+                $('#start, #reset, #delay input, #decimation select, #export').prop('disabled', false);
         }
     };
 
@@ -524,6 +570,65 @@
 
         link.click(); // This will download the data file named "my_data.csv".
         document.body.removeChild(link);
+    };
+
+
+    APP.showWarning = function(text) {
+        $("#warning").css("visibility", "visible");
+        $("#warning").text(text);;
+    };
+
+    APP.hideWarning = function() {
+        $("#warning").css("visibility", "hidden");
+    };
+
+    APP.checkDecimationADCandBinCount = function() {
+        if (APP.decimation[APP.channel] < 16 && APP.bincount[APP.channel] > 1024) {
+            APP.showWarning(
+                "Warning: Decrease the bin-count or increase the smoothing "+
+                "duration if using a STEMLAB-10."
+            );
+        }
+        else {
+            APP.hideWarning();
+        }
+    };
+
+    var filenum = 0;
+    APP.importFile = function(file) {
+        var reader = new FileReader();
+        reader.onerror = function(error) {
+            alert("Error reading file:\n"+JSON.stringify(error.target.error));
+        };
+        reader.onload = function(event) {
+            var csv = event.target.result;
+            var list_of_lines = csv.split(/\r\n|\n/);
+            var results = [];
+            var columns;
+            for (var i=1, l=list_of_lines.length; i<l; i++) {
+                columns = list_of_lines[i].split(/,|;|\t/);
+                results[i-1] = parseInt(columns[1]);
+            }
+            var name = file.name.split('.')[0];
+            APP.restoreData(name, results);
+            // Load new data now
+            $('#input select').val(4+filenum);
+            $('#input select').trigger('change');            
+        }
+        reader.readAsText(file);
+    }
+
+    APP.restoreData = function(name, results) {
+        filenum++;
+        var name = name || ("Import "+filenum);
+        $('#input select').append($('<option>', {
+            value: 4 + filenum,
+            text: name
+        }));
+        APP.savedHistograms[filenum] = {
+            name: name,
+            content: results
+        };
     };
 
     // Output a number with tousands separators.
@@ -595,33 +700,86 @@ $(function() {
     })
 
     $('#input').on('change', function() {
-        var val = parseInt($('#input option:selected').val());
+        var val = parseInt($('#input select').val());
+
+        // Regerate the chart completely
+        APP.chart.destroy();
+
         switch(val) {
             case 1: // IN1-POS
                 APP.channel = 0;
                 APP.setNegator(APP.channel, 0);
+                APP.createChart("Input 1 - Positve Pulses");
                 break;
             case 2: // IN2-POS
                 APP.channel = 1;
                 APP.setNegator(APP.channel, 0);
+                APP.createChart("Input 2 - Positive Pulses");
                 break;
             case 3: // IN1-NEG
                 APP.channel = 0;
                 APP.setNegator(APP.channel, 1);
+                APP.createChart("Input 1 - Negative Pulses");
                 break;
             case 3: // IN2-NEG
                 APP.channel = 1;
                 APP.setNegator(APP.channel, 1);
+                APP.createChart("Input 2 - Negative Pulses");
                 break;
+            default: // Imported file
+                APP.channel = -1;
+                APP.createChart(APP.savedHistograms[val-4].name);
+                APP.updateChartData(
+                    APP.savedHistograms[val-4].content
+                );
+                
         }
-        // Regerate the chart completely
-        APP.chart.destroy();
-        APP.createChart();
+
         APP.chart.reflow();
+
+        // Update decimation dropdown to previousy known value
+        if (APP.channel >= 0) {
+            $('#decimation select').val(APP.decimation[APP.channel]);
+            $('#delay input').val(APP.delay[APP.channel]);
+            $('#delay #delay-readout').text(
+                (APP.delay[APP.channel] * APP.decimation[APP.channel] * 8/1000).toFixed(1) + ' μs'
+            );
+
+            APP.checkDecimationADCandBinCount();
+        }
 
         // Reset the UI state to unknown
         APP.last_sent_status = null;
     });
+
+    $('#decimation select').on('change', function() {
+        var val = parseInt($('#decimation option:selected').val());
+        APP.decimation[APP.channel] = val;
+        APP.setDecimation(APP.channel, val);
+        // Update delay readout
+        $('#delay #delay-readout').text(
+            (APP.delay[APP.channel] * APP.decimation[APP.channel] * 8/1000).toFixed(1) + ' μs'
+        );
+        APP.checkDecimationADCandBinCount();        
+    });
+
+    $('#delay input').on('change', function() {
+        var val = parseInt($('#delay input').val());
+        APP.delay[APP.channel] = val;
+        APP.setPHADelay(APP.channel, APP.delay[APP.channel]);
+        $('#delay #delay-readout').text(
+            (APP.delay[APP.channel] * APP.decimation[APP.channel] * 8/1000).toFixed(1) + ' μs'
+        );
+        APP.checkDecimationADCandBinCount();        
+    });
+
+    $('#importFileInput').on('change', function(event){
+        if (this.files.length > 0 && window.FileReader) {
+            for (var i=0, l=this.files.length; i<l; i++) {
+                APP.importFile(this.files[i]);
+            }
+        }
+    })
 
     // Highcharts don't handle css grids very well, so recreate chart on resize
     $(window).resize($.debounce(250, function() {
@@ -632,7 +790,8 @@ $(function() {
         var zoom_extremesx = APP.chart.xAxis[0].getExtremes();
         var zoom_extremesy = APP.chart.yAxis[0].getExtremes();
         APP.chart.destroy();
-        APP.createChart();
+        var title = title.options.title.text;
+        APP.createChart(title);
         APP.chart.reflow();
         setTimeout(function() {
             APP.chart.xAxis[0].setExtremes(

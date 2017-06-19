@@ -126,7 +126,7 @@ int rp_app_init(void)
       sts        = (uint8_t*)  mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40000000);
       cfg        = (uint8_t*)  mmap(NULL,      sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40001000);
       hst0       = (char*)     mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40010000);
-      hst1     = (char*)     mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40020000);
+      hst1       = (char*)     mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40020000);
       gen        = (uint8_t*)  mmap(NULL,   16*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x40030000);
       ram        = (char*)     mmap(NULL, 8192*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x1E000000);
       buf        = (char*)     mmap(NULL, 8192*sysconf(_SC_PAGESIZE), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
@@ -276,6 +276,9 @@ void OnNewParams(void)
     int chan = (uint8_t)  COMMAND_CHAN.Value();
     uint32_t data = (uint32_t) COMMAND_DATA.Value();
 
+    // Print out what commands we receive.
+    // Skip this for the update histogram and update timer commands
+    // since we get so many of them.
     if (code!=14 && code!=13) {
       fprintf(stderr, "-------------------\n");
       fprintf(stderr, "Command code: %d\n", code);
@@ -283,12 +286,9 @@ void OnNewParams(void)
       fprintf(stderr, "Command data: %d\n", data);
     }
 
-    // code = (uint8_t)(command >> 56) & 0xff;
-    // chan = (uint8_t)(command >> 52) & 0xf;
-    // data = (uint64_t)(command & 0xfffffffffffffULL);
 
     if (chan < 0 || chan > 1) {
-      fprintf(stderr, "Channel must be 0 or 1");
+      fprintf(stderr, "ERROR: Channel must be 0 or 1");
     }
     else if (code==-1) {
         // Nothing to do
@@ -336,6 +336,8 @@ void OnNewParams(void)
       else if(code == 4)
       {
         /* set sample rate */
+        // This is the decimation parameter to the CIC filterthat controls
+        // the data rate to the FIR filter, and then the PHA core.
         *(uint16_t *)(cfg + 4) = data;
       }
       else if(code == 5)
