@@ -431,6 +431,26 @@ html, body {
   font-size: 18px;
   margin-top: 12px;
 }
+.tooltip:after {
+  content: '?';
+  display: inline-block;
+  color: #4a78a6;
+  background: rgba(255,255,255,0.5);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+/*   float: right; */
+  margin-top: 3px;
+  margin-left: 6px;
+  margin-right: 8px;
+  cursor: pointer;
+}
+.tooltip:after:hover {
+  background: rgba(255,255,255,0.1);
+}
 
 input[type="number"],
 select {

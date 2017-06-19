@@ -673,9 +673,16 @@
 
 
 // Page onload event handler
-$(function() {
+$(document).ready(function() {
     // Start application
     APP.startApp();
+
+    // Set up tooltips
+    $('.tooltip').tooltipster({
+        theme: 'tooltipster-shadow',
+        trigger: 'click',
+        side: ['top', 'left', 'right', 'bottom']
+    });
 
     // Stop application the way out
 	$(window).bind('beforeunload', function(e){

@@ -24,11 +24,11 @@ all: $(CONTROLLERHF)
 $(CONTROLLERHF):
 	$(MAKE) -C src
 
-$(ZIP): $(CONTROLLERHF) index.html fpga.conf js/app.js css/style.css src/main.cpp assets/*
+$(ZIP): $(CONTROLLERHF) index.html fpga.conf js/app.js css/style.css src/main.cpp assets/* vendor/*
 	-$(RM) target -rf
 	mkdir -p target/$(APP)
 	# Prefix CSS automatically
-	cp -r $(CONTROLLERHF) fpga.conf info js css index.html mcpha.bit assets target/$(APP)
+	cp -r $(CONTROLLERHF) fpga.conf info js css index.html mcpha.bit assets vendor target/$(APP)
 	sed -i target/$(APP)/info/info.json -e 's/REVISION/$(REVISION)/'
 	sed -i target/$(APP)/info/info.json -e 's/BUILD_NUMBER/$(BUILD_NUMBER)/'
 	cd target; zip -r ../$(ZIP) *

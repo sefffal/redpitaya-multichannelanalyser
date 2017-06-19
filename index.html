@@ -14,17 +14,24 @@
 <head>
   <meta http-equiv="content-type" content="text/html; charset=utf-8"></meta>
   <title>Multichannel Analyser</title>
+
+  <!--Stylesheets-->
   <link rel="stylesheet" href="css/style.css">
-  <script src="js/highcharts.js"></script>
-  <script src="js/highcharts-more.js"></script>
-  <script src="js/highcharts-exporting.js"></script>
-  <script src="js/highcharts-boost.js"></script>
-  <script src="js/jquery-2.1.3.min.js"></script>
-  <script src="js/jquery.ba-throttle-debounce.min.js"></script>
-  <script src="js/pako.js"></script>
+  <link rel="stylesheet" type="text/css" href="vendor/jquery-tooltipster/css/tooltipster.bundle.min.css" />
+  <link rel="stylesheet" type="text/css" href="vendor/jquery-tooltipster/css/plugins/tooltipster/sideTip/themes/tooltipster-sideTip-shadow.min.css"/>
+
+  <!--Javascript-->
+  <script src="vendor/highcharts.js"></script>
+  <script src="vendor/highcharts-more.js"></script>
+  <script src="vendor/highcharts-exporting.js"></script>
+  <script src="vendor/highcharts-boost.js"></script>
+  <script src="vendor/jquery-2.1.3.min.js"></script>
+  <script src="vendor/jquery.ba-throttle-debounce.min.js"></script>
+  <script src="vendor/jquery-tooltipster/js/tooltipster.bundle.min.js"></script>
+  <script src="vendor/pako.js"></script>
   <script src="js/app.js"></script>
 
-  <!-- Fix mobile device screen zoom-->
+  <!-- Fix default mobile device screen zoom-->
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <!-- Set the nav bar color to match the app -->
@@ -47,7 +54,10 @@
   <div id="content">
     <!-- Time and Input Select -->
     <div class="group timer">
-      <h2>Acquisition Time</h2>
+      <h2 class="tooltip"
+          title="This is how long you would like to run the multichannel analyser for. You can stop it early if you wish. This includes live time and wait time.">
+        Acquisition Time
+      </h2>
       <label>
         <input type="number" id="hours" value="0" min="0">
         Hours
@@ -64,7 +74,10 @@
 
     <!-- Input Select-->
     <div class="group input">
-      <h2>Source</h2>
+      <h2 class="tooltip"
+          title="This is the fast analog port on the Red Pitaya you are connecting to. Also select if you want to detect positive pulses or negative pulses. If you import a file, it will also show up here.">
+          Source
+      </h2>
       <label id="input">
         <select>
           <option value="1">IN1-POS</option>
@@ -78,7 +91,10 @@
 
     <!-- Decimation Select-->
     <div class="group decimation">
-      <h2>Smoothing</h2>
+      <h2 class="tooltip"
+          title="This value controls the decimation and averaging window performed by a digital filter before the pulse is analysed. If you have a noisy signal or the pulses have a long decay time, choose a larger value. Otherwise, pick the smallest value without lots of noise appearing. ">
+          Smoothing
+      </h2>
       <!--TODO: Update this value when switching between channels-->
       <label id="decimation">
         <select>
@@ -102,7 +118,10 @@
 
     <!-- Decimation Select-->
     <div class="group bincount">
-      <h2>Bin Count</h2>
+      <h2 class="tooltip"
+          title="Select how many bins you would like on the horizontal axis of the histogram. If using a STEMLAB-10 and a smoothing value less than 128ns, you should choose 1024 for the bin count.">
+          Bin Count
+      </h2>
       <!--TODO: Update this value when switching between channels-->
       <label id="bincount">
         <select>
@@ -115,7 +134,10 @@
 
     <!-- Dead-Time Select-->
     <div class="group delay">
-      <h2>Wait Time</h2>
+      <h2 class="tooltip"
+          title="Select how long to wait after a pulse maximum before searching for the next pulse. Adjust this carefully if you have pileup.">
+          Wait Time
+      </h2>
       <label id="delay">
         <input type="range" min="0" max="16384" value="100"/>
         <span id="delay-readout">12.8 &mu;s</span>        
