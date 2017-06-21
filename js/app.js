@@ -208,7 +208,7 @@
     APP._runLoop = function() {
 
         // Update chart with latest values
-        if (APP.latestSignals && APP.latestSignals.HISTOGRAM && APP.channel > 0) {
+        if (APP.latestSignals && APP.latestSignals.HISTOGRAM && APP.channel >= 0) {
             APP.updateChartData(APP.latestSignals.HISTOGRAM.value);
             // // Upon receiving an update, we know the app is running so set start button text
             // $('#start').text("STOP");
@@ -238,8 +238,8 @@
         } else {
             var val = parseInt($('#input select').val());
             APP.updateInfo(
-                0,
-                0,
+                APP.savedHistograms[val-4].realtime,
+                APP.savedHistograms[val-4].realtime,
                 APP.savedHistograms[val-4].content
             );
         }
@@ -269,9 +269,11 @@
         // Send timer = (milliseconds*125000)
 
         // Send base update command 6, channel, type?
-        APP.sendCommand(6, APP.channel, 0); // No baseline
 
-        // Send base val command 7, channel, baseline
+        //APP.sendCommand(6, APP.channel, 0); // No baseline
+        APP.sendCommand(6, APP.channel, 1); // Auto baseline subtract
+        
+	// Send base val command 7, channel, baseline
         APP.sendCommand(7, APP.channel, 0); // No baseline
 
         // Send PHA delay update command 8 channel 100?
@@ -549,7 +551,7 @@
 
         var total = 0;
         for (var i=histogram.length-1; i>=0; i--) {
-            total += histogram[i];
+            total += histogram[i] || 0;
         }
 
 
@@ -589,9 +591,11 @@
 
     APP.exportCSV = function(filename) {
 
-        var csv_content = "data:text/csv;charset=utf8,"+
-                          "Channel, Counts\n";
-        var csv_list = [];
+        var csv_content = "data:text/csv;charset=utf8,";
+        var csv_list = [
+            ["Real Time (s):", ""+APP.latestSignals.TIMER_STATUS.value[APP.channel]],
+            ["Channel", "Counts"]
+        ];
         for (var i=0, l=APP.latestSignals.HISTOGRAM.value.length; i<l; i++) {
             csv_list.push(
                 i+", "+APP.latestSignals.HISTOGRAM.value[i]
@@ -640,14 +644,19 @@
         reader.onload = function(event) {
             var csv = event.target.result;
             var list_of_lines = csv.split(/\r\n|\n/);
+            if (list_of_lines.length < 3) {
+                alert("Please supply a CSV file in the same format as this app exports");
+                return;
+            }
+            var time = parseInt(list_of_lines[0].split(/,|;|\t/)[1]);
             var results = [];
             var columns;
-            for (var i=1, l=list_of_lines.length; i<l; i++) {
+            for (var i=2, l=list_of_lines.length; i<l; i++) {
                 columns = list_of_lines[i].split(/,|;|\t/);
-                results[i-1] = parseInt(columns[1]);
+                results[i-2] = parseInt(columns[1]);
             }
             var name = file.name.split('.')[0];
-            APP.restoreData(name, results);
+            APP.restoreData(name, results, time);
             // Load new data now
             $('#input select').val(4+filenum);
             $('#input select').trigger('change');
@@ -655,7 +664,7 @@
         reader.readAsText(file);
     }
 
-    APP.restoreData = function(name, results) {
+    APP.restoreData = function(name, results, time) {
         filenum++;
         var name = name || ("Import "+filenum);
         $('#input select').append($('<option>', {
@@ -664,7 +673,8 @@
         }));
         APP.savedHistograms[filenum] = {
             name: name,
-            content: results
+            content: results,
+            realtime: time
         };
     };
 
@@ -740,7 +750,7 @@ $(document).ready(function() {
     })
 
     $('#export').click(function() {
-        APP.exportCSV("test");
+        APP.exportCSV($('#input select option:selected').text());
     })
 
     $('#input').on('change', function() {
@@ -765,7 +775,7 @@ $(document).ready(function() {
                 APP.setNegator(APP.channel, 1);
                 APP.createChart("Input 1 - Negative Pulses");
                 break;
-            case 3: // IN2-NEG
+            case 4: // IN2-NEG
                 APP.channel = 1;
                 APP.setNegator(APP.channel, 1);
                 APP.createChart("Input 2 - Negative Pulses");
@@ -851,8 +861,17 @@ $(document).ready(function() {
         var zoom_extremesx = APP.chart.xAxis[0].getExtremes();
         var zoom_extremesy = APP.chart.yAxis[0].getExtremes();
         var title = APP.chart.options.title.text;
+        
+        var val = parseInt($('#input select').val());
+        if (val <=4 ) {
+            var data = APP.latestSignals.HISTOGRAM.value;
+        }
+        else {
+            var data = APP.savedHistograms[val-4].content;
+        } 
         APP.chart.destroy();
         APP.createChart(title);
+        APP.updateChartData(data);
         APP.chart.reflow();
         setTimeout(function() {
             APP.chart.xAxis[0].setExtremes(
