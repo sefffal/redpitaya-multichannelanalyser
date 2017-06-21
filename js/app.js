@@ -377,7 +377,9 @@
                 type: 'column'
             },
             credits: {
-                text: 'Will Thompson'
+                text: 'Will Thompson',
+                href: 'http://www.willthompson.me',
+                position: {y: -10}
             },
             plotOptions: {
                 column: {
@@ -389,6 +391,9 @@
                     groupPadding: 0,
                     pointPlacement: 'on',
                     pointRange: 1,
+                    crisp: true // This distorts the widths of the bins a bit
+                                // but prevents blurryness that makes it hard to
+                                // read the chart
                 }
             },
             title: {

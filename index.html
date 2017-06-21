@@ -24,6 +24,7 @@
   <script src="vendor/highcharts.js"></script>
   <script src="vendor/highcharts-more.js"></script>
   <script src="vendor/highcharts-exporting.js"></script>
+  <script src="vendor/highcharts-boost-canvas.js"></script>
   <script src="vendor/highcharts-boost.js"></script>
   <script src="vendor/jquery-2.1.3.min.js"></script>
   <script src="vendor/jquery.ba-throttle-debounce.min.js"></script>
@@ -156,12 +157,22 @@
     <table id="info" class="group info">
       <tbody>
         <tr>
-          <td>Real Time</td>
+          <td>
+            <span class="tooltip"
+                  title="This is the amount of time passed since the aquisition was started. To calculate the livetime, subtract the wait time you selected multiplied by the total number of counts.">
+                  Real Time
+            </span>
+          </td>
           <td id="livetime">0</td>
           <td>s</td>
         </tr>
         <tr>
-          <td>Rate</td>
+          <td>
+            <span class="tooltip"
+                  title="The average number of events per second over the whole range.">
+                  Rate
+            </span>
+          </td>
           <td id="rate">0</td>
           <td>/s</td>
         </tr>
@@ -172,12 +183,22 @@
           </td>
         </tr>
         <tr id="total-counts">
-          <td>Total counts</td>
+          <td>
+            <span class="tooltip"
+                  title="The total number of detection events.">
+                  Total Counts
+            </span>
+          </td>
           <td class="value">0</td>
           <td></td>
         </tr>
         <tr id="region-of-interest">
-          <td>Region of Interest</td>
+          <td>
+            <span class="tooltip"
+                  title="The number of counts visible in the zoomed in region.">
+                  Region of Interest
+            </span>
+          </td>
           <td class="value">0</td>
           <td></td>
         </tr>
