@@ -14,7 +14,7 @@ VER:=$(shell cat info/info.json | grep version | sed -e 's/.*:\ *\"//' | sed -e 
 INSTALL_DIR ?= .
 
 CONTROLLERHF = controllerhf.so
-ZIP = ../../$(APP)-$(VER)-$(BUILD_NUMBER)-$(REVISION).zip
+ZIP = $(APP)-$(VER)-$(BUILD_NUMBER)-$(REVISION).zip
 
 CFLAGS += -DVERSION=$(VER)-$(BUILD_NUMBER) -DREVISION=$(REVISION)
 export CFLAGS
