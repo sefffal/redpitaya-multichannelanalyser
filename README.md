@@ -15,12 +15,17 @@ The interface is responsive &mdash; try it on your phone!
 
 Access your Red Pitaya (replace rp-??? with the address on the sticker):
 ~~~bash
-ssh root@rp-???
+sh root@rp-???
 ~~~
 
 Clone the reposity:
 ~~~bash
 git clone https://github.com/sefffal/redpitaya-multichannelanalyser.git
+~~~
+
+Set the install directory of the Red Pitaya Ecosystem:
+~~~bash
+export INSTALL_DIR=/opt/redpitaya
 ~~~
 
 Enter the directory, build, and install:
