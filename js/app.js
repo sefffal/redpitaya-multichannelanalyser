@@ -269,12 +269,10 @@
         // Send timer = (milliseconds*125000)
 
         // Send base update command 6, channel, type?
+        APP.sendCommand(6, APP.channel, 0); // Reset to zero baseline
 
-        //APP.sendCommand(6, APP.channel, 0); // No baseline
-        APP.sendCommand(6, APP.channel, 1); // Auto baseline subtract
-        
-	// Send base val command 7, channel, baseline
-        APP.sendCommand(7, APP.channel, 0); // No baseline
+        // Send base val command 7, channel, baseline
+        APP.sendCommand(7, APP.channel, 0); // baseline set to zero
 
         // Send PHA delay update command 8 channel 100?
         APP.setPHADelay(APP.channel, APP.delay[APP.channel]);
@@ -288,13 +286,13 @@
         APP.sendCommand(0, APP.channel, 0); // Reset timer -- why are these different?
 
             // Send base update command 6, channel, type?
-            APP.sendCommand(6, APP.channel, 0); // No baseline
+            APP.sendCommand(6, APP.channel, 1); // Auto baseline subtract
 
             // Send base val command 7, channel, baseline
-            APP.sendCommand(7, APP.channel, 0); // No baseline
+            APP.sendCommand(7, APP.channel, 0); // Baseline set to zero, but ignored since auto baseline
 
             // Send PHA delay update command 8 channel 100?
-            APP.sendCommand(8, APP.channel, 100);
+            APP.sendCommand(8, APP.channel, APP.delay[APP.channel]);
 
             // Send thrs_update  command 9min, channel, min; command 10max channel max
             APP.sendCommand(9, APP.channel, 0);
