@@ -88,7 +88,7 @@ html, body {
   align-self: end;
 }
 
-#content .bincount {
+#content .config {
   grid-row: 3;
   grid-column: 1;
   -webkit-align-self: end;
@@ -163,7 +163,7 @@ html, body {
     justify-self: start;
     margin-left: 5px;
   }
-  #content .bincount {
+  #content .config {
     grid-row: 2;
     grid-column: 3;
     justify-self: start;
@@ -290,7 +290,7 @@ html, body {
     justify-self: start;
     margin-left: 5px;
   }
-  #content .bincount {
+  #content .config {
     grid-row-start: 1;
     grid-row-end: 2;
     grid-column-start: 4;
@@ -451,6 +451,188 @@ html, body {
 .tooltip:after:hover {
   background: rgba(255,255,255,0.1);
 }
+
+
+
+
+
+
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.6);
+  visibility: hidden;
+}
+.modal.show {
+  visibility: visible;
+}
+.modal > .content {
+  position: fixed;
+  margin: 0;
+  width: 800px;
+  height: 510px;
+  left: calc(50% - 400px);
+  top: calc(50% - 250px);
+  background: #4a78a6;
+  box-sizing: border-box;
+  border-radius: 5px;
+  padding: 12px;
+
+}
+
+#details-modal .content {
+  display: grid;
+  padding: 0;
+  grid-template-rows: auto auto auto auto auto 1fr;
+  grid-template-columns: 1fr 270px;
+
+}
+
+.modal #close-details {
+  grid-row: 1;
+  grid-column: 2;
+  justify-self: end;
+  align-self: start;
+  position: relative;
+  top: -16px;
+  right: -16px;
+  background: #4a78a6;
+  font-size: 24px;
+  color: white;
+  text-decoration: none;
+  font-weight: bold;
+  border: 2px solid white;
+  display: block;
+  width: 30px;
+  height: 30px;
+  text-align: center;
+  line-height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.modal #close-details:hover {
+  background: #63a0dd;
+}
+
+#details-modal > .content h1 {
+  background: #305478;
+  padding: 12px;
+  margin: 0;
+  box-sizing:  border-box;
+  color:  white;
+  text-align: center;
+  align-self: start;
+  justify-self: stretch;
+  grid-row: 1;
+  grid-column-start: 1;
+  grid-column-end: 3;
+  border-radius: 5px 5px 0 0;
+  font-weight: 100;
+  font-size: 26px;
+}
+
+#details-modal .content .diagram {
+  grid-row-start: 2;
+  grid-row-end: 7;
+  grid-column: 1;
+  align-self: stretch;
+  justify-self: stretch;
+  background: white;
+  background-image: url(../assets/mca-diagram.png);
+  background-size: 100%;
+  background-repeat: no-repeat;
+  background-position: 50% 50%;
+
+  text-align: center;
+  font-size: 18px;
+  padding-top: 80px;
+  font-weight: bold;
+}
+
+
+#details-modal .content .group { 
+  grid-column-start: 2;
+  grid-column-end: 3;
+  justify-self: start;
+  align-self: start;
+  height: 90px;
+}
+
+
+
+@media screen and (max-width: 830px) {
+  .modal > .content {
+    position: fixed;
+    margin: 0;
+    width: 100%;
+    height: calc(100% - 80px);
+    left: 0;
+    top: 40px;
+    background: #4a78a6;
+    box-sizing: border-box;
+    border-radius: 5px;
+    padding: 12px;
+
+  }
+  .modal #close-details {
+    right: 18px;
+    top: 9px
+  }
+  #details-modal > .content h1 {
+    text-align: left;
+  }
+
+  #details-modal .content {
+    grid-template-rows: auto auto auto auto auto auto 1fr;
+    grid-template-columns: auto auto;
+    overflow-y: auto;
+  }
+
+  #details-modal .content .diagram {
+    grid-row-start: 7;
+    grid-row-end: 8;
+    grid-column-start: 1;
+    grid-column-end: 3;
+    background: white;
+    background-image: url(../assets/mca-diagram.png);
+    background-size: auto 100%;
+    background-repeat: no-repeat;
+    background-position: 50% 50%;
+    padding-top: 20px;
+    min-height: 150px;
+    max-height: 200px
+  }
+
+  #details-modal .content .group { 
+    grid-column-start: 1;
+    grid-column-end: 2;
+    justify-self: start;
+    align-self: start;
+    height: 90px;
+  }
+}
+
+
+
+input[type="checkbox"] {
+  margin: 0;
+  box-sizing: border-box;
+  font-family: sans-serif;
+  font-size: 19px;
+  box-shadow: none;
+  border-radius: none;
+  width: 20px;
+  margin-right: 4px;
+  padding: 1px 4px;
+  height: 40px;
+  line-height: 40px;
+}
+
 
 input[type="number"],
 select {

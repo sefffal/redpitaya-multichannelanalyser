@@ -36,6 +36,10 @@
     APP.decimation = [16,16];
     APP.bincount = 16384;
     APP.delay = [100,100];
+    APP.baselineval = [0, 0];
+    APP.baselineauto = [false, false];
+    APP.threshold_min = [0, 0];
+    APP.threshold_max = [16384, 16384];
 
     // Saved results
     APP.savedHistograms = [];
@@ -263,40 +267,35 @@
 
     APP.resumeMCA = function(channel, timeleft_s) {
 
+        // // Send timer = (milliseconds*125000)
+
+        // // Send base update command 6, channel, type?
+        // APP.sendCommand(6, APP.channel, 0); // Reset to zero baseline
+
+        // // Send base val command 7, channel, baseline
+        // APP.sendCommand(7, APP.channel, 0); // baseline set to zero
+
+        // // Send thrs_update  command 9min, channel, min; command 10max channel max
+        // APP.sendCommand(9, APP.channel, 0);
+        // APP.sendCommand(10, APP.channel, 16384);
+
+        // // counter setup
+        APP.sendCommand(11, APP.channel, timeleft_s); // Set timer
+        APP.sendCommand(0, APP.channel, 0); // Reset timer -- why are these different?
+
+        APP.setBaseline(APP.channel, APP.baselineval[APP.channel], APP.baselineauto[APP.channel]);
+
+        // Send PHA delay update command 8 channel 100?
+        APP.sendCommand(8, APP.channel, APP.delay[APP.channel]);
+
         // Set decimation to 16
         APP.setDecimation(channel, APP.decimation[channel]);
 
-        // Send timer = (milliseconds*125000)
-
-        // Send base update command 6, channel, type?
-        APP.sendCommand(6, APP.channel, 0); // Reset to zero baseline
-
-        // Send base val command 7, channel, baseline
-        APP.sendCommand(7, APP.channel, 0); // baseline set to zero
+        APP.setThreshold(APP.channel, APP.threshold_min[APP.channel], APP.threshold_max[APP.channel])
 
         // Send PHA delay update command 8 channel 100?
         APP.setPHADelay(APP.channel, APP.delay[APP.channel]);
 
-        // Send thrs_update  command 9min, channel, min; command 10max channel max
-        APP.sendCommand(9, APP.channel, 0);
-        APP.sendCommand(10, APP.channel, 16384);
-
-        // counter setup
-        APP.sendCommand(11, APP.channel, timeleft_s); // Set timer
-        APP.sendCommand(0, APP.channel, 0); // Reset timer -- why are these different?
-
-            // Send base update command 6, channel, type?
-            APP.sendCommand(6, APP.channel, 1); // Auto baseline subtract
-
-            // Send base val command 7, channel, baseline
-            APP.sendCommand(7, APP.channel, 0); // Baseline set to zero, but ignored since auto baseline
-
-            // Send PHA delay update command 8 channel 100?
-            APP.sendCommand(8, APP.channel, APP.delay[APP.channel]);
-
-            // Send thrs_update  command 9min, channel, min; command 10max channel max
-            APP.sendCommand(9, APP.channel, 0);
-            APP.sendCommand(10, APP.channel, 16384);
 
         // Send start command
         APP.sendCommand(12, APP.channel, 1);
@@ -318,6 +317,14 @@
             throw "Decimation should porbably be at least 4";
         }
         APP.sendCommand(4, channel, decimation);
+    };
+    APP.setBaseline = function(channel, val, auto) {
+
+        // Send base update command 6, channel, type?
+        APP.sendCommand(6, APP.channel, auto ? 1 : 0); // Auto baseline subtract
+
+        // Send base val command 7, channel, baseline
+        APP.sendCommand(7, APP.channel, val); 
     };
     // Sets if PHA should look for negative or positve pulses.
     // 1 means negative, 0 means positive.
@@ -344,6 +351,14 @@
         APP.sendCommand(1, channel, 0); // Reset histogram
     };
 
+    APP.setThreshold = function(channel, min, max) {
+        if (channel !== 0 && channel !== 1) {
+            throw "Invalid Argument: Must have channel number 0 or 1";
+        }
+        // Send thrs_update  command 9min, channel, min; command 10max channel max
+        APP.sendCommand(9, APP.channel, min);
+        APP.sendCommand(10, APP.channel, max);
+    }
     APP.setPHADelay = function(channel, delay) {
         if (channel !== 0 && channel !== 1) {
             throw "Invalid Argument: Must have channel number 0 or 1";
@@ -745,11 +760,33 @@ $(document).ready(function() {
 
     $('#reset').click(function() {
         APP.resetHistogram(APP.channel);
-    })
+    });
 
     $('#export').click(function() {
         APP.exportCSV($('#input select option:selected').text());
-    })
+    });
+
+    $('#config').click(function() {
+        $('#details-modal').addClass("show");
+
+        var auto = APP.baselineauto[APP.channel];
+        $('#baseline-val').val(APP.baselineval[APP.channel]);
+        $('#baseline-val').prop('disabled', auto);
+        $('#baseline-auto').prop('checked', auto);
+
+        var min = APP.threshold_min[APP.channel];
+        var max = APP.threshold_max[APP.channel];
+        $('#threshold-min').val(min);
+        $('#threshold-max').val(max);
+    });
+
+    $('.modal, #close-details').click(function(e) {
+
+        // Do nothing if it was a child element that was clicked.
+        if(e.target !== e.currentTarget) return;
+
+        $('#details-modal').removeClass("show");
+    });
 
     $('#input').on('change', function() {
         var val = parseInt($('#input select').val());
@@ -828,6 +865,25 @@ $(document).ready(function() {
             (APP.delay[APP.channel] * APP.decimation[APP.channel] * 8/1000).toFixed(1) + ' μs'
         );
         APP.checkDecimationADCandBinCount();
+    });
+
+    $('#baseline-val, #baseline-auto').on('change', function() {
+        var val = parseInt($('#baseline-val').val());
+        var auto = !!$('#baseline-auto').prop('checked');
+        APP.baselineval[APP.channel] = val;
+        APP.baselineauto[APP.channel] = auto;
+        APP.setBaseline(APP.channel, val, auto);
+
+        $('#baseline-val').prop('disabled', auto);
+    });
+
+    $('#threshold-min, #threshold-max').on('change', function() {
+        var min = parseInt($('#threshold-min').val());
+        var max = parseInt($('#threshold-max').val());
+        APP.threshold_min[APP.channel] = min;
+        APP.threshold_max[APP.channel] = max;
+
+        APP.setThreshold(APP.channel, min, max);
     });
 
     $('#bincount select').on('change', function() {

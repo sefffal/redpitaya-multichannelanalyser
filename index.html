@@ -89,59 +89,13 @@
         Input &amp; Polarity
       </label>
     </div>
-
-    <!-- Decimation Select-->
-    <div class="group decimation">
-      <h2 class="tooltip"
-          title="This value controls the decimation and averaging window performed by a digital filter before the pulse is analysed. If you have a noisy signal or the pulses have a long decay time, choose a larger value. Otherwise, pick the smallest value without lots of noise appearing. ">
-          Smoothing
-      </h2>
-      <!--TODO: Update this value when switching between channels-->
-      <label id="decimation">
-        <select>
-          <option value="4">32ns</option>
-          <option value="8">64ns</option>
-          <option value="16" selected>128ns</option>
-          <option value="32">256ns</option>
-          <option value="64">512ns</option>
-          <option value="128">1.0&mu;s</option>
-          <option value="256">2.0&mu;s</option>
-          <option value="512">4.1&mu;s</option>
-          <option value="1024">8.2&mu;s</option>
-          <option value="2048">16.4&mu;s</option>
-          <option value="4096">32.8&mu;s</option>
-          <option value="8192">65.5&mu;s</option>
-        </select>
-        <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-      </label>
-    </div>
     
-
-    <!-- Decimation Select-->
-    <div class="group bincount">
-      <h2 class="tooltip"
-          title="Select how many bins you would like on the horizontal axis of the histogram. If using a STEMLAB-10 and a smoothing value less than 128ns, you should choose 1024 for the bin count.">
-          Bin Count
-      </h2>
+     <!-- Decimation Select-->
+    <div class="group config">
       <!--TODO: Update this value when switching between channels-->
-      <label id="bincount">
-        <select>
-          <option value="1024">1024</option>
-          <option value="16384" selected>16384</option>
-        </select>
+      <label>
+        <button id="config">SETTNGS...</button>
         <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-      </label>
-    </div>
-
-    <!-- Dead-Time Select-->
-    <div class="group delay">
-      <h2 class="tooltip"
-          title="Select how long to wait after a pulse maximum before searching for the next pulse. Adjust this carefully if you have pileup.">
-          Wait Time
-      </h2>
-      <label id="delay">
-        <input type="range" min="0" max="16384" value="100"/>
-        <span id="delay-readout">12.8 &mu;s</span>        
       </label>
     </div>
 
@@ -216,6 +170,105 @@
     <div id='hello_message'>
       <div class="hello_message_text">Starting...</div>
       <div class="loader"></div>
+    </div>
+  </div>
+
+  <div id="details-modal" class="modal">
+    <div class="content">
+      <h1>Configuration</h1>
+      <a id="close-details">X</a>
+      <div class="diagram">
+        Pulse Illustration
+      </div>
+
+      <div class="group decimation">
+        <h2 class="tooltip"
+            title="This value controls the decimation and averaging window performed by a digital filter before the pulse is analysed. If you have a noisy signal or the pulses have a long decay time, choose a larger value. Otherwise, pick the smallest value without lots of noise appearing. ">
+            Smoothing
+        </h2>
+        <!--TODO: Update this value when switching between channels-->
+        <label id="decimation">
+          <select>
+            <option value="4">32ns</option>
+            <option value="8">64ns</option>
+            <option value="16" selected>128ns</option>
+            <option value="32">256ns</option>
+            <option value="64">512ns</option>
+            <option value="128">1.0&mu;s</option>
+            <option value="256">2.0&mu;s</option>
+            <option value="512">4.1&mu;s</option>
+            <option value="1024">8.2&mu;s</option>
+            <option value="2048">16.4&mu;s</option>
+            <option value="4096">32.8&mu;s</option>
+            <option value="8192">65.5&mu;s</option>
+          </select>
+          <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        </label>
+      </div>
+   
+      <!-- Decimation Select-->
+      <div class="group bincount">
+        <h2 class="tooltip"
+            title="Select how many bins you would like on the horizontal axis of the histogram. If using a STEMLAB-10 and a smoothing value less than 128ns, you should choose 1024 for the bin count.">
+            Bin Count
+        </h2>
+        <!--TODO: Update this value when switching between channels-->
+        <label id="bincount">
+          <select>
+            <option value="1024">1024</option>
+            <option value="16384" selected>16384</option>
+          </select>
+          <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        </label>
+      </div>
+
+      <!-- Time and Input Select -->
+      <div class="group baseline">
+        <h2 class="tooltip"
+            title="This is the value above or below which pulses are measured from. If a pulse never goes past the baseline, it will not be counted. This is essentially shifting the histogram x-axis. Auto baseline means it will measure then pulse height from the most recent minimum of the signal. Do not use auto baseline if your pulses are bi-polar.">
+          Baseline
+        </h2>
+        <label>
+          <input type="number" id="baseline-val" value="0" min="-8192" max="8192"/>
+          Min
+        </label>
+        <label>
+          <input type="checkbox" id="baseline-auto" checked/>
+          <span>Auto</span>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>          
+        </label>
+      </div>
+
+      <!-- Time and Input Select -->
+      <div class="group threshold">
+        <h2 class="tooltip"
+            title="This is the minimum and maximum amplitude of a pulse past the baseline that will be counted. It essentially restricts the histogram x-axis. You should set a minimum that is larger than the amplitude of the noise.">
+          Threshold
+        </h2>
+        <label>
+          <input type="number" id="threshold-min" value="0" min="0" max="16384"/>
+          Min
+        </label>
+          <label>
+          <input type="number" id="threshold-max" value="16384" min="0" max="16384"/>
+          Max
+        </label>
+      </div>
+
+
+   
+      <!-- Dead-Time Select-->
+      <div class="group delay">
+        <h2 class="tooltip"
+            title="Select how long to wait after a pulse maximum before searching for the next pulse. Adjust this carefully if you have pileup.">
+            Wait Time
+        </h2>
+        <label id="delay">
+          <input type="range" min="0" max="16384" value="100"/>
+          <span id="delay-readout">12.8 &mu;s</span>        
+        </label>
+      </div>
+
     </div>
   </div>
 </body>

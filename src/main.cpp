@@ -48,7 +48,7 @@ CIntSignal TIMER_CONFIG("TIMER_CONFIG", CBaseParameter::RW, 2, 0);
 //CIntParameter(std::string _name, CBaseParameter::AccessMode _access_mode, int _value, int _fpga_update, int _min, int _max)
 CIntParameter COMMAND_CODE("COMMAND_CODE", CBaseParameter::RW, -1, 0, -1, 255);
 CIntParameter COMMAND_CHAN("COMMAND_CHAN", CBaseParameter::RW, 0, 0, 0, 255);
-CIntParameter COMMAND_DATA("COMMAND_DATA", CBaseParameter::RW, 0, 0, 0,  2147483647); // Max range for a 32bit integer
+CIntParameter COMMAND_DATA("COMMAND_DATA", CBaseParameter::RW, 0, 0, -2147483648,  2147483647); // Max range for a 32bit integer
 
 int fd;
 volatile uint32_t *slcr, *axi_hp0;
@@ -283,7 +283,7 @@ void OnNewParams(void)
       fprintf(stderr, "-------------------\n");
       fprintf(stderr, "Command code: %d\n", code);
       fprintf(stderr, "Command chan: %d\n", chan);
-      fprintf(stderr, "Command data: %d\n", data);
+      fprintf(stderr, "Command data: %zu\n", data);
     }
 
 
