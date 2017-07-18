@@ -385,6 +385,40 @@
 
         var log = APP.logarithmic;
 
+        var plotBands = [];
+        if ( APP.threshold_min[APP.channel] > 0) {
+            plotBands.push({
+                color: 'rgba(0,0,0, 0.25)',
+                label: APP.threshold_min[APP.channel] > 130 ? {
+                    text: 'Below threshold',
+                    rotation: -90,
+                    verticalAlign: 'middle',
+                    align: 'right',
+                    textAlign: 'center',
+                    x: -5
+                } : undefined,
+                zIndex: 5,
+                from: 0,
+                to: APP.threshold_min[APP.channel]/16384*APP.bincount,
+            });
+        }
+        if (APP.threshold_max[APP.channel] < 16384) {
+            plotBands.push({
+                color: 'rgba(0,0,0, 0.25)',
+                label: APP.threshold_max[APP.channel] < 16384 - 130 ? {
+                    text: 'Above threshold',
+                    rotation: -90,
+                    verticalAlign: 'middle',
+                    align: 'left',
+                    textAlign: 'center',
+                    x: -5
+                } : undefined,
+                zIndex: 5,
+                from: APP.threshold_max[APP.channel]/16384*APP.bincount,
+                to: APP.bincount
+            });
+        }
+
         APP.chart = Highcharts.chart('histogram-container', {
             chart: {
                 backgroundColor: 'transparent',
@@ -419,7 +453,8 @@
                 crosshair: true,
                 text: 'Channel Number',
                 min: 0,
-                max: APP.bincount
+                max: APP.bincount,
+                plotBands: plotBands
             },
             yAxis: {
                 min: 0,
@@ -691,6 +726,45 @@
         };
     };
 
+    APP.redrawChart = function() {
+
+        if (!APP.chart) {
+            return;
+        }
+        var zoom_extremesx = APP.chart.xAxis[0].getExtremes();
+        var zoom_extremesy = APP.chart.yAxis[0].getExtremes();
+        var title = APP.chart.options.title.text;
+        
+        var val = parseInt($('#input select').val());
+        if (val <=4 ) {
+            var data = APP.latestSignals.HISTOGRAM.value;
+        }
+        else {
+            var data = APP.savedHistograms[val-4].content;
+        } 
+        APP.chart.destroy();
+        APP.createChart(title);
+        APP.updateChartData(data);
+        APP.chart.reflow();
+        setTimeout(function() {
+            APP.chart.xAxis[0].setExtremes(
+                zoom_extremesx.min,
+                zoom_extremesx.max,
+                true, // Redraw
+                false // Animation
+            );
+            APP.chart.yAxis[0].setExtremes(
+                zoom_extremesy.min,
+                zoom_extremesy.max,
+                true, // Redraw
+                false // Animation
+            );
+            if( !APP.chart.resetZoomButton ) {
+                APP.chart.showResetZoom();
+            }
+        });
+    };
+
     // Output a number with tousands separators.
     // From https://stackoverflow.com/questions/2901102/how-to-print-a-number-with-commas-as-thousands-separators-in-javascriptb
     function numberWithCommas(x) {
@@ -884,6 +958,7 @@ $(document).ready(function() {
         APP.threshold_max[APP.channel] = max;
 
         APP.setThreshold(APP.channel, min, max);
+        APP.redrawChart();
     });
 
     $('#bincount select').on('change', function() {
@@ -909,41 +984,7 @@ $(document).ready(function() {
     // Highcharts don't handle css grids very well, so recreate chart on resize
     $(window).resize($.debounce(250, function() {
         console.log("Recreating chart (resize event)");
-        if (!APP.chart) {
-            return;
-        }
-        var zoom_extremesx = APP.chart.xAxis[0].getExtremes();
-        var zoom_extremesy = APP.chart.yAxis[0].getExtremes();
-        var title = APP.chart.options.title.text;
-        
-        var val = parseInt($('#input select').val());
-        if (val <=4 ) {
-            var data = APP.latestSignals.HISTOGRAM.value;
-        }
-        else {
-            var data = APP.savedHistograms[val-4].content;
-        } 
-        APP.chart.destroy();
-        APP.createChart(title);
-        APP.updateChartData(data);
-        APP.chart.reflow();
-        setTimeout(function() {
-            APP.chart.xAxis[0].setExtremes(
-                zoom_extremesx.min,
-                zoom_extremesx.max,
-                true, // Redraw
-                false // Animation
-            );
-            APP.chart.yAxis[0].setExtremes(
-                zoom_extremesy.min,
-                zoom_extremesy.max,
-                true, // Redraw
-                false // Animation
-            );
-            if( !APP.chart.resetZoomButton ) {
-                APP.chart.showResetZoom();
-            }
-        })
+        APP.redrawChart();
     }));
 });
 
