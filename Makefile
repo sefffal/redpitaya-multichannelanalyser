@@ -4,7 +4,8 @@
 # Red Pitaya specific application Makefile.
 #
 
-APP=$(notdir $(CURDIR:%/=%))
+APP=multichannelanalyser
+#$(notdir $(CURDIR:%/=%))
 
 # Versioning system
 BUILD_NUMBER ?= 0
@@ -25,6 +26,7 @@ $(CONTROLLERHF):
 	$(MAKE) -C src
 
 $(ZIP): $(CONTROLLERHF) index.html fpga.conf js/app.js css/style.css src/main.cpp assets/* vendor/*
+	echo $(APP)
 	-$(RM) target -rf
 	mkdir -p target/$(APP)
 	cp -r $(CONTROLLERHF) fpga.conf info js css index.html mcpha.bit assets vendor target/$(APP)
