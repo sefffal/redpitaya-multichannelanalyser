@@ -411,7 +411,7 @@
                     verticalAlign: 'middle',
                     align: 'left',
                     textAlign: 'center',
-                    x: -5
+                    x: +10
                 } : undefined,
                 zIndex: 5,
                 from: APP.threshold_max[APP.channel]/16384*APP.bincount,
@@ -674,8 +674,8 @@
     APP.checkDecimationADCandBinCount = function() {
         if (APP.decimation[APP.channel] < 16 && APP.bincount > 1024) {
             APP.showWarning(
-                "Warning: Decrease the bin-count or increase the smoothing "+
-                "duration if using a STEMLAB-10."
+                "Warning: Decrease the bin-count or increase the sampling "+
+                "window if using a STEMLAB-10 to avoid aliasing."
             );
         }
         else {
