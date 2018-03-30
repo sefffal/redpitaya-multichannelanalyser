@@ -44,11 +44,15 @@
     // Saved results
     APP.savedHistograms = [];
 
+    APP.start_time = Date.now();
+
     // Starts template application on server
     APP.startApp = function() {
+        APP.start_time = Date.now();   
+        $('#loader').removeClass("error");        
         $('#hello_message.text').text('Connecting...');
 
-        APP.createChart("Input 1 - Postive Pulses");
+        APP.createChart("Input 1 - Positive Pulses");
 
         $.get(APP.config.app_url)
             .done(function(dresult) {
@@ -56,21 +60,21 @@
 					window.setTimeout(APP.connectWebSocket, 1000);
                 } else if (dresult.status == 'ERROR') {
                     console.log(dresult.reason ? dresult.reason : 'Could not start the application (ERR1)');
-                    $('#hello_message_text').text(dresult.reason ? dresult.reason : 'Could not start the application (ERR1). Retrying in 1s...');
+                    $('.hello_message_text').html(dresult.reason ? dresult.reason : "Could not start the application (ERR1)."+
+                    "<br><a onclick=\"APP.startApp()\">Retry?</a>");
                     $('#loader').addClass("error");
-                    APP.startApp();
                 } else {
                     console.log('Could not start the application (ERR2)');
-                    $('#hello_message_text').text('Could not start the application (ERR2). Retrying in 1s...');
+                    $('.hello_message_text').html("Could not start the application (ERR2)."+
+                    "<br><a onclick=\"APP.startApp()\">Retry?</a>");
                     $('#loader').addClass("error");
-                    setTimeout(APP.startApp, 1000);
                 }
             })
             .fail(function() {
                 console.log('Could not start the application (ERR3)');
-                $('#hello_message.text').text('Could not start the application (ERR3). Retrying in 1s...');
+                $('.hello_message_text').html("Could not start the application (ERR3)."+
+                    "<br><a onclick=\"APP.startApp()\">Retry?</a>");
                 $('#hello_message').addClass("error");
-                setTimeout(APP.startApp, 1000);
             });
     };
 
@@ -153,9 +157,19 @@
             };
 
             APP.ws.onerror = function(ev) {
-                $('#hello_message').text("Connection error");
-                $('#hello_message').addClass("error");
-                console.log('Websocket error: ', ev);
+                //If it's been more than two seconds since we started the app,
+                //then either the connection dropped or a user left the page
+                //and hit "back". Try reconnecting.
+                if (Date.now() - APP.start_time > 2000) {
+                    APP.startApp()
+                }
+                else {
+                    $('#hello_message_text').html(
+                        "Connection error."+
+                        "<br><a onclick=\"APP.startApp()\">Retry?</a>");
+                    $('#hello_message').addClass("error");
+                    console.log('Websocket error: ', ev);
+                }
             };
 
             APP.ws.onmessage = function(ev) {
@@ -871,7 +885,7 @@ $(document).ready(function() {
             case 1: // IN1-POS
                 APP.channel = 0;
                 APP.setNegator(APP.channel, 0);
-                APP.createChart("Input 1 - Positve Pulses");
+                APP.createChart("Input 1 - Positive Pulses");
                 break;
             case 2: // IN2-POS
                 APP.channel = 1;
