@@ -426,8 +426,7 @@
                 type: 'column'
             },
             credits: {
-                text: 'Will Thompson',
-                href: 'http://www.willthompson.me',
+                text: 'Pavel Demin & Will Thompson',
                 position: {y: -10}
             },
             plotOptions: {
