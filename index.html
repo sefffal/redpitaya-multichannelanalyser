@@ -181,7 +181,7 @@
         Pulse Illustration
       </div>
 
-      <div class="group decimation">
+      <div class="group decimation" style="-ms-grid-row: 2">
         <h2 class="tooltip"
             title="This value controls the decimation and averaging window performed by a digital filter before the pulse is analysed. If you have a noisy signal or the pulses have a long decay time, choose a larger value. Otherwise, pick the smallest value without lots of noise appearing. ">
             Sampling
@@ -207,7 +207,7 @@
       </div>
    
       <!-- Decimation Select-->
-      <div class="group bincount">
+      <div class="group bincount" style="-ms-grid-row: 3">
         <h2 class="tooltip"
             title="Select how many bins you would like on the horizontal axis of the histogram. If using a STEMLAB-10 and a smoothing value less than 128ns, you should choose 1024 for the bin count.">
             Bin Count
@@ -223,7 +223,7 @@
       </div>
 
       <!-- Time and Input Select -->
-      <div class="group baseline">
+      <div class="group baseline" style="-ms-grid-row: 4">
         <h2 class="tooltip"
             title="This is the value above or below which pulses are measured from. If a pulse never goes past the baseline, it will not be counted. This is essentially shifting the histogram x-axis. Auto baseline means it will measure then pulse height from the most recent minimum of the signal. Do not use auto baseline if your pulses are bi-polar.">
           Baseline
@@ -240,7 +240,7 @@
       </div>
 
       <!-- Time and Input Select -->
-      <div class="group threshold">
+      <div class="group threshold" style="-ms-grid-row: 5">
         <h2 class="tooltip"
             title="This is the minimum and maximum amplitude of a pulse past the baseline that will be counted. It essentially restricts the histogram x-axis. You should set a minimum that is larger than the amplitude of the noise.">
           Threshold
@@ -258,13 +258,13 @@
 
    
       <!-- Dead-Time Select-->
-      <div class="group delay">
+      <div class="group delay"style="-ms-grid-row: 6">
         <h2 class="tooltip"
             title="Select how long to wait after a pulse maximum before searching for the next pulse. Adjust this carefully if you have pileup.">
             Wait Time
         </h2>
         <label id="delay">
-          <input type="range" min="0" max="16384" value="100"/>
+          <input type="range" min="0" max="16384" value="100"style="padding:0;"/>
           <span id="delay-readout">12.8 &mu;s</span>        
         </label>
       </div>
