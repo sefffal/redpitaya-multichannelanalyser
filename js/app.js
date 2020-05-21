@@ -540,14 +540,15 @@
                 }
             }
         }
-        // 1024 bins, must re-bin
+        // must re-bin
         else {
             var bin_total = 0;
+            var ratio = Math.floor(16384/APP.bincount);
             for (var i=0, l=values.length; i<l; i++) {
-                if (i%16===0) {
+                if (i%ratio===0) {
                     if (bin_total > 0) {
                         new_values.push([
-                            Math.round(i/16),
+                            Math.round(i/ratio),
                             APP.logarithmic ? Math.log10(bin_total) : bin_total
                         ]);
                         bin_total = 0;
@@ -621,9 +622,10 @@
             var zoom_data = APP.chart.xAxis[0].getExtremes();
             var start = Math.floor(zoom_data.min);
             var stop  = Math.ceil(zoom_data.max);
-            if (APP.bincount === 1024) {
-                start *= 16;
-                stop *= 16;
+            var ratio = Math.floor(16384/APP.bincount)
+            if (APP.bincount !== 16384) {
+                start *= ratio;
+                stop *= ratio;
             }
             for (var i=start; i<stop; i++) {
                 region_of_interest += histogram[i];
