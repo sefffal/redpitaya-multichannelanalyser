@@ -622,7 +622,7 @@
             var zoom_data = APP.chart.xAxis[0].getExtremes();
             var start = Math.floor(zoom_data.min);
             var stop  = Math.ceil(zoom_data.max);
-            var ratio = Math.floor(16384/APP.bincount)
+            var ratio = Math.floor(16384/APP.bincount);
             if (APP.bincount !== 16384) {
                 start *= ratio;
                 stop *= ratio;
