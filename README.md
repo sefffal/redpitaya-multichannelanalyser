@@ -1,3 +1,10 @@
+# Seeking Maintainer
+This project is not up to date with the latest version of red pitaya OS and might not work. Unfortunately I am not in a position to maintain this project. If you are interested, you are welcome to fork. Let me know and I will update this page to point to any active fork.
+You might also have luck with Pavel Demin's original work upon which this is based: https://pavel-demin.github.io/red-pitaya-notes/
+
+-WT
+
+
 # Red Pitaya Multichannel Analyser
 *A fresh Multichannel Analyser app for the Red Pitaya.*
 
